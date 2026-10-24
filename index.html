@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#edeff1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1114" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="판단 일지">
+<title>판단 일지</title>
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Myeongjo:wght@800&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="#/">판단 일지</a>
+    <div class="top-tools">
+      <span class="sync" id="sync" aria-live="polite"></span>
+      <button class="icon-btn" id="refresh" type="button" aria-label="새로 불러오기"></button>
+      <a class="icon-btn" id="settings-link" href="#/settings" aria-label="연결 설정"></a>
+    </div>
+  </div>
+</header>
+<nav class="nav" aria-label="화면">
+  <a href="#/" data-tab="home">오늘</a>
+  <a href="#/runs" data-tab="runs">판단</a>
+  <a href="#/score" data-tab="score">성적</a>
+  <a href="#/accounts" data-tab="accounts">계좌</a>
+  <a href="#/etf" data-tab="etf">ETF</a>
+    </nav>
+<main id="view" class="wrap"></main>
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>
