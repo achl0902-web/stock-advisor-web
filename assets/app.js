@@ -13,7 +13,7 @@ const DEC = {
   sell: { label: "매도", seal: ["매", "도"], tone: "down" },
 };
 const PREMORTEM = { skip: "생략", pass: "통과", revise: "계획 수정", block: "중단" };
-const ACCOUNT_ORDER = ["main", "bio", "pension"];
+const ACCOUNT_ORDER = ["main", "bio", "pension", "crypto"];
 
 let state = { repo: null, model: null, strategy: null, loading: null, error: null };
 
@@ -24,6 +24,9 @@ function money(v, cur) {
   if (cur === "USD") return "$" + nf(2).format(v);
   return nf(0).format(Math.round(v)) + "원";
 }
+// 수량: 주식은 정수 주, 코인은 소수점(최대 8자리) + 코인 기호
+const nfQty = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 8 });
+const qtyText = (q, unit) => !unit || unit === "주" ? nf(0).format(q) + "주" : `${nfQty.format(q)} ${unit}`;
 function krwShort(v) {
   if (v == null || isNaN(v)) return "–";
   const a = Math.abs(v);
@@ -148,7 +151,7 @@ async function loadModel(repo) {
 }
 
 /* ---------- 공통 조각 ---------- */
-const accountLabel = k => state.model?.accounts?.[k]?.label || { main: "주 계좌", bio: "바이오 계좌", pension: "퇴직연금" }[k] || k;
+const accountLabel = k => state.model?.accounts?.[k]?.label || { main: "주 계좌", bio: "바이오 계좌", pension: "퇴직연금", crypto: "크립토 계좌" }[k] || k;
 function runLine(r) {
   const d = DEC[r.dec?.decision];
   return `<a class="ledger-row" href="#/run/${encodeURIComponent(r.id)}">
@@ -164,7 +167,7 @@ function ordersTable(plan) {
     plan.orders.map(o => `<tr>
       <td><span class="side tone-${o.side === "sell" ? "down" : "up"}">${o.side === "sell" ? "매도" : "매수"}</span> ${esc(o.leg)}${o.zone?.low ? `<div class="zone">${money(o.zone.low, cur)}~${money(o.zone.high, cur)} 구간</div>` : ""}</td>
       <td class="num">${money(o.limit_price, cur)}</td>
-      <td class="num">${nf(0).format(o.qty)}주</td>
+      <td class="num">${qtyText(o.qty, plan.qty_unit)}</td>
       <td class="num">${money(o.amount_local, cur)}${cur === "USD" ? `<div class="zone">약 ${krwShort(o.amount_krw)}</div>` : ""}</td>
     </tr>`).join("")
   }</tbody></table>`;
@@ -353,6 +356,7 @@ async function renderRun(id) {
       ${ordersTable(plan)}
       <dl class="facts">
         ${plan.weight_after_pct != null ? `<div><dt>주문 뒤 비중</dt><dd>${nf(2).format(plan.weight_after_pct)}%</dd></div>` : ""}
+        ${plan.qty_after != null ? `<div><dt>전부 체결 시 보유</dt><dd>${qtyText(plan.qty_after, plan.qty_unit)}${plan.goal_pct_after != null ? ` (목표의 ${nf(1).format(plan.goal_pct_after)}%)` : ""}</dd></div>` : ""}
         ${plan.planned_krw != null ? `<div><dt>계획 금액</dt><dd>${krwShort(plan.planned_krw)}</dd></div>` : ""}
         ${plan.trim_zone?.price ? `<div><dt>비중 축소 구간</dt><dd>${money(plan.trim_zone.price, plan.currency)} 이상</dd></div>` : ""}
         ${plan.fx_conversion_needed_usd ? `<div><dt>환전 필요</dt><dd>$${nf(2).format(plan.fx_conversion_needed_usd)}</dd></div>` : ""}
@@ -444,11 +448,14 @@ function renderAccounts() {
     const rows = a.holdings.map(h => {
       const q = m.lastQuote[h.symbol];
       const pl = q?.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null;
-      const w = wOf(h.symbol);
+      // 목표 수량 계좌(코인)는 비중 대신 목표 달성률
+      const goal = a.goal?.symbol === h.symbol ? h.qty / a.goal.qty * 100 : null;
+      const w = goal ?? wOf(h.symbol);
+      const unit = h.market === "CRYPTO" ? h.symbol : "주";
       return `<li class="hold">
-        <div class="h-top"><span class="h-name">${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</span><span class="h-w">${w != null ? nf(1).format(w) + "%" : "–"}</span></div>
+        <div class="h-top"><span class="h-name">${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</span><span class="h-w">${w != null ? nf(1).format(w) + "%" + (goal != null ? ` / 목표 ${qtyText(a.goal.qty, unit)}` : "") : "–"}</span></div>
         <div class="wbar"><span style="width:${Math.min(100, w || 0)}%"></span></div>
-        <div class="h-sub muted small"><span>${esc(h.symbol)}, ${nf(0).format(h.qty)}주, 평단 ${money(h.avg_price, h.currency)}</span><span>${q ? `${money(q.price, h.currency)} <span class="tone-${tone(pl)}">${pct(pl)}</span>` : "시세 없음"}</span></div>
+        <div class="h-sub muted small"><span>${esc(h.symbol)}, ${qtyText(h.qty, unit)}${h.avg_price ? `, 평단 ${money(h.avg_price, h.currency)}` : ""}</span><span>${q ? `${money(q.price, h.currency)} <span class="tone-${tone(pl)}">${pct(pl)}</span>` : "시세 없음"}</span></div>
       </li>`;
     }).join("");
     let limit = "";
