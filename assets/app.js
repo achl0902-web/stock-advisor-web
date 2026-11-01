@@ -244,13 +244,15 @@ function alertPlanBlock() {
 function scoreSummary(h = "now") {
   const sc = state.model.scorecard || [];
   const rows = sc.map(s => ({ s, x: s.h?.[h] })).filter(r => r.x);
-  const hits = rows.filter(r => typeof r.x.hit === "boolean");
+  const hits = rows.filter(r => typeof r.x.hit === "boolean" && r.s.decision !== "hold");
   const hitN = hits.filter(r => r.x.hit).length;
+  const holds = rows.filter(r => typeof r.x.hit === "boolean" && r.s.decision === "hold");
+  const holdN = holds.filter(r => r.x.hit).length;
   const dirEx = rows.filter(r => r.s.decision !== "hold" && r.x.excess != null).map(r => (["trim", "sell"].includes(r.s.decision) ? -1 : 1) * r.x.excess);
   const planned = rows.filter(r => ["buy", "split_buy"].includes(r.s.decision) && r.x.plan_ret != null && r.x.lump_ret != null);
   const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null;
   return {
-    n: rows.length, hitN, hitD: hits.length,
+    n: rows.length, hitN, hitD: hits.length, holdN, holdD: holds.length,
     dirEx: avg(dirEx) != null ? avg(dirEx) * 100 : null,
     splitEffect: planned.length ? avg(planned.map(r => r.x.plan_ret - r.x.lump_ret)) * 100 : null,
     plannedN: planned.length,
@@ -405,6 +407,7 @@ function renderScore() {
     <div class="tiles wide">
       <div class="tile"><span class="t-v">${ss.n}건</span><span class="t-k">채점</span></div>
       <div class="tile"><span class="t-v">${ss.hitN}/${ss.hitD}</span><span class="t-k">방향 적중</span></div>
+      <div class="tile"><span class="t-v">${ss.holdN}/${ss.holdD}</span><span class="t-k">관망 적중 (안 사길 잘함)</span></div>
       <div class="tile"><span class="t-v tone-${tone(ss.dirEx)}">${pp(ss.dirEx)}</span><span class="t-k">초과수익 평균 (방향 반영)</span></div>
       <div class="tile"><span class="t-v tone-${tone(ss.splitEffect)}">${pp(ss.splitEffect)}</span><span class="t-k">분할·지정가 효과 (${ss.plannedN}건)</span></div>
     </div>
@@ -420,7 +423,7 @@ function renderScore() {
           <a class="bar-row" href="#/run/${encodeURIComponent(s.run)}" title="${esc(s.name)}: 수익 ${pct(x.ret * 100)}, 벤치마크 ${pct(x.bench * 100)}">
             <span class="br-seal">${seal(s.decision, "xs")}</span>
             <span class="br-name">${esc(state.model.names[s.symbol] || s.name)}</span>
-            <span class="br-meta muted small">${esc(String(s.at || "").slice(5, 10).replace("-", "/"))} 판단, ${x.days}일 경과${typeof x.hit === "boolean" ? `, ${x.hit ? "적중" : "빗나감"}` : x.hit === null ? ", 무승부(±2%p 안)" : ", 관망은 채점 제외"}${x.mae != null ? `, 최대 역행 ${pct(-x.mae * 100)}` : ""}</span>
+            <span class="br-meta muted small">${esc(String(s.at || "").slice(5, 10).replace("-", "/"))} 판단, ${x.days}일 경과${typeof x.hit === "boolean" ? `, ${s.decision === "hold" ? (x.hit ? "안 사길 잘함" : "샀으면 나았음") : (x.hit ? "적중" : "빗나감")}` : x.hit === null ? ", 무승부(±2%p 안)" : ""}${x.mae != null ? `, 최대 역행 ${pct(-x.mae * 100)}` : ""}</span>
             <span class="br-plot"><span class="zero"></span><span class="bar tone-${tone(ex)}" style="${ex >= 0 ? `left:50%` : `right:50%`};width:${w}%"></span></span>
             <span class="br-val"><span class="tone-${tone(ex)}">${pp(ex * 100)}</span><span class="muted small">수익 ${pct(x.ret * 100)}</span></span>
           </a>
