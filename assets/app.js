@@ -420,7 +420,7 @@ function renderScore() {
           <a class="bar-row" href="#/run/${encodeURIComponent(s.run)}" title="${esc(s.name)}: 수익 ${pct(x.ret * 100)}, 벤치마크 ${pct(x.bench * 100)}">
             <span class="br-seal">${seal(s.decision, "xs")}</span>
             <span class="br-name">${esc(state.model.names[s.symbol] || s.name)}</span>
-            <span class="br-meta muted small">${esc(String(s.at || "").slice(5, 10).replace("-", "/"))} 판단, ${x.days}일 경과${typeof x.hit === "boolean" ? `, ${x.hit ? "적중" : "빗나감"}` : ", 관망은 채점 제외"}</span>
+            <span class="br-meta muted small">${esc(String(s.at || "").slice(5, 10).replace("-", "/"))} 판단, ${x.days}일 경과${typeof x.hit === "boolean" ? `, ${x.hit ? "적중" : "빗나감"}` : x.hit === null ? ", 무승부(±2%p 안)" : ", 관망은 채점 제외"}${x.mae != null ? `, 최대 역행 ${pct(-x.mae * 100)}` : ""}</span>
             <span class="br-plot"><span class="zero"></span><span class="bar tone-${tone(ex)}" style="${ex >= 0 ? `left:50%` : `right:50%`};width:${w}%"></span></span>
             <span class="br-val"><span class="tone-${tone(ex)}">${pp(ex * 100)}</span><span class="muted small">수익 ${pct(x.ret * 100)}</span></span>
           </a>
