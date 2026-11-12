@@ -6,11 +6,12 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#EEF2F7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0C1626" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="시세판">
 <title>시세판</title>
+<script src="assets/theme.js"></script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,16 +20,18 @@
 <style>
 /* Layout: terminal grid. Tape across the top; chart owns the left, watchlist + my price ladder on the right; heatmap spans below. Phones stack chart → tabs. */
 :root {
-  --bg: #EEF2F7;
-  --panel: #FFFFFF;
-  --raised: #F3F6FA;
-  --ink: #0D1B2D;
-  --sub: #5C6B7F;
-  --line: #DAE1EA;
-  --grid: #EEF2F6;
-  --accent: #B77B00;
-  --accent-ink: #1A1300;
-  --accent-wash: #FFF3D1;
+  /* 60 바탕 · 30 패널 · 10 형광 포인트. 판단 일지와 같은 톤. 기본 블랙 라임, data-palette="espresso"면 에스프레소 민트. 라이트 모드 없음. */
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #121212;
+  --raised: #1c1c1c;
+  --ink: #f2f2f2;
+  --sub: #8a8a8a;
+  --line: #262626;
+  --grid: #191919;
+  --accent: #c8ff2e;
+  --accent-ink: #000000;
+  --accent-wash: color-mix(in srgb, #c8ff2e 16%, transparent);
   --up: #F04452;
   --down: #3182F6;
   --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
@@ -40,17 +43,10 @@
   --fnv-accent: var(--accent);
   --fnv-font: var(--font-ui);
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0C1626; --panel: #122036; --raised: #182A44; --ink: #E4EBF5; --sub: #8C9DB5;
-    --line: #22344F; --grid: #192942; --accent: #F2B33D; --accent-ink: #1A1300; --accent-wash: #3A2E12;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0C1626; --panel: #122036; --raised: #182A44; --ink: #E4EBF5; --sub: #8C9DB5;
-  --line: #22344F; --grid: #192942; --accent: #F2B33D; --accent-ink: #1A1300; --accent-wash: #3A2E12;
-  color-scheme: dark;
+:root[data-palette="espresso"] {
+  --bg: #140f0b; --panel: #201913; --raised: #2b221a; --ink: #f4ede5; --sub: #a69584;
+  --line: #3a2e24; --grid: #251d16; --accent: #6cf5cf; --accent-ink: #140f0b;
+  --accent-wash: color-mix(in srgb, #6cf5cf 16%, transparent);
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
@@ -67,13 +63,14 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 .brand { white-space: nowrap; font-family: var(--font-fig); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
 .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .btn { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
 .btn:disabled { opacity: .6; cursor: default; }
 .dot.is-busy { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
 .alert { font-size: 12.5px; padding: 8px 12px; border-radius: 9px; background: var(--accent-wash); color: var(--ink); }
 .empty-card a { color: var(--accent); }
 .fresh { display: flex; align-items: center; gap: 6px; color: var(--sub); font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash), 0 0 10px var(--accent); }
 
 /* tape */
 .tape { overflow-x: auto; scrollbar-width: none; margin-inline: -4px; padding-inline: 4px; scroll-snap-type: x proximity; }
@@ -104,7 +101,7 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 /* segmented */
 .seg { display: inline-flex; background: var(--raised); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
 .seg button { padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--sub); text-align: center; }
-.seg button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(13, 27, 45, .12); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
 .seg-wide { display: flex; } .seg-wide button { flex: 1; }
 
 /* watchlist */

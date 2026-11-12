@@ -568,10 +568,10 @@ function renderSetup(message) {
           <li>GitHub에서 <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">새 fine-grained 토큰 만들기</a>를 엽니다.</li>
           <li>이름은 아무거나(예: 판단 일지), 만료는 원하는 기간으로 둡니다.</li>
           <li>Repository access에서 <strong>Only select repositories</strong>를 고르고 stock-advisor 하나만 넣습니다.</li>
-          <li>Permissions의 Repository permissions에서 <strong>Contents: Read-only</strong>만 켭니다. Metadata 읽기는 자동으로 붙습니다.</li>
+          <li>Permissions의 Repository permissions에서 <strong>Contents: Read-only</strong>를 켭니다. 시세 탭에서 새로 수집하려면 <strong>Actions: Read and write</strong>도 켭니다. Metadata 읽기는 자동으로 붙습니다.</li>
           <li>만든 토큰을 위 칸에 붙여 넣고 연결하기를 누릅니다.</li>
         </ol>
-        <p class="muted small">읽기 전용이라 이 토큰으로는 저장소를 바꿀 수 없습니다. 기기를 잃어버리면 GitHub에서 토큰을 지우면 됩니다.</p>
+        <p class="muted small">이 토큰으로는 저장소 코드를 바꿀 수 없고, Actions 권한으로는 이미 있는 수집 작업만 실행합니다. 기기를 잃어버리면 GitHub에서 토큰을 지우면 됩니다.</p>
       </details>
       ${cur ? `<button class="btn ghost danger" id="forget">이 기기에서 토큰 지우기</button>` : ""}
     </section>`;
