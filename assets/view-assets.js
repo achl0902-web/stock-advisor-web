@@ -221,7 +221,7 @@ function goalBlock(a) {
   </div>`;
 }
 
-function accountPanel(v, color) {
+function accountPanel(v, color, { trendKey = null, now = undefined } = {}) {
   const { a, key } = v, m = state.model;
   const safe = a.safe_assets || {};
   // 종목 색은 설정 파일 순서를 따른다(비중이 바뀌어도 같은 종목은 같은 색). 현금은 회색.
@@ -241,9 +241,9 @@ function accountPanel(v, color) {
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
   const expo = v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<section class="panel account">
-    ${head(a.label || key, `<b class="fig total"><i class="sw" style="background:${color}"></i>${v.total != null ? krwShort(v.total) : "–"}</b>`)}
+    ${head(a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}${v.total != null ? krwShort(v.total) : "–"}</b>`)}
     ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
-    ${trend(key, v.live ? { [key]: v.total } : null, a.label || key)}
+    ${trend(trendKey ?? key, now !== undefined ? now : v.live ? { [key]: v.total } : null, a.label || key)}
     ${goalBlock(a)}${limitBlock(a, v)}
     <div class="split">
       ${v.total && slices.length > 1 ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
@@ -280,9 +280,31 @@ export function renderLongTerm() {
   view.innerHTML = `
     ${subtabs(TABS, "long")}
     ${keys.length ? `${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
-    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 유동 자산 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
+    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 전체 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
   bindRange();
   drawTrends();
+}
+
+// 전체: 계좌들의 종목을 종목마다 합친다(수량·평가액은 더하고, 평단은 수량 가중). 현금도 합친다.
+function mergedView(views) {
+  const by = new Map();
+  for (const v of views) for (const r of v.rows) {
+    const x = by.get(r.h.symbol);
+    const cost = r.h.avg_price ? r.h.avg_price * r.h.qty : null;
+    if (!x) { by.set(r.h.symbol, { h: { ...r.h }, q: r.q, value: r.value, cost }); continue; }
+    x.h.qty += r.h.qty;
+    x.value = x.value != null && r.value != null ? x.value + r.value : null;
+    x.cost = x.cost != null && cost != null ? x.cost + cost : null;
+  }
+  const total = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
+  const cash = views.reduce((s, v) => s + (v.cash || 0), 0);
+  const rows = [...by.values()].map(({ h, q, value, cost }) => {
+    h.avg_price = cost != null && h.qty ? cost / h.qty : null;
+    return { h, q, value, pl: q?.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null, weight: total && value != null ? value / total * 100 : null };
+  });
+  const sum = f => views.reduce((s, v) => s + (v.a[f] || 0), 0);
+  const a = { label: "전체 계좌", holdings: rows.map(r => r.h), cash_krw: sum("cash_krw"), cash_usd: sum("cash_usd") };
+  return { key: "all", a, rows, cash, total, live: views.every(v => v.live), cashPct: total ? cash / total * 100 : null, snap: null };
 }
 
 function renderGroup() {
@@ -290,11 +312,15 @@ function renderGroup() {
   const keys = accountGroup(state.model.accounts, false);
   if (!keys.length) { view.innerHTML = `${subtabs(TABS, tab)}<p class="none">이 묶음의 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`; return; }
   const views = keys.map(accountView);
-  if (!keys.includes(picked[tab])) picked[tab] = keys[0];
+  if (picked[tab] !== "all" && !keys.includes(picked[tab])) picked[tab] = "all";
   const cur = picked[tab];
   const color = Object.fromEntries(keys.map(k => [k, colorOf(k)]));
-  const title = "유동 자산";
-  const all = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
+  const merged = mergedView(views);
+  const all = merged.total;
+  // 고른 계좌 칸: 전체는 계좌를 합친 성과·종목, 아니면 그 계좌
+  const panelOf = k => k === "all"
+    ? accountPanel(merged, null, { trendKey: keys, now: Object.fromEntries(views.filter(v => v.live).map(v => [v.key, v.total])) })
+    : accountPanel(views.find(v => v.key === k), color[k]);
   trends = [];
   view.innerHTML = `
     ${subtabs(TABS, tab)}
@@ -302,34 +328,32 @@ function renderGroup() {
     <div class="accounts">
       <div class="col">
         <section class="panel">
-          <header class="worth"><span>${title}</span><b class="fig">${all != null ? krwShort(all) : "–"}</b></header>
-          ${trend(keys, Object.fromEntries(views.filter(v => v.live).map(v => [v.key, v.total])), title)}
-        </section>
-        <section class="panel">
           ${head("계좌 구성", `<span class="hint">눌러서 계좌 보기</span>`)}
           <div class="split">
             ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: krwShort(all), sub: `${views.length}개 계좌`, picked: cur }) : ""}
-            <div class="picker" role="group" aria-label="계좌">${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === cur}">
+            <div class="picker" role="group" aria-label="계좌"><button type="button" data-acc="all" aria-pressed="${cur === "all"}">
+              <i class="sw sw-all" aria-hidden="true"></i><span>전체</span><b class="fig">${all != null ? krwShort(all) : "–"}</b><small></small>
+            </button>${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === cur}">
               <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${v.total != null ? krwShort(v.total) : "–"}</b><small class="fig">${all ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
             </button>`).join("")}</div>
           </div>
         </section>
       </div>
-      ${accountPanel(views.find(v => v.key === cur), color[cur])}
+      ${panelOf(cur)}
     </div>
     ${worthNote(keys)}`;
   // 계좌를 고르면 아래 계좌 칸만 바꿔 끼운다. 화면 전체를 다시 그리면 그리는 사이 페이지가 잠깐 짧아져
   // 아이폰 사파리가 스크롤을 맨 위쪽으로 끌어올린다. 도넛 조각을 눌러도 같다.
   const pick = k => {
-    if (!keys.includes(k) || k === picked[tab]) return;
+    if ((k !== "all" && !keys.includes(k)) || k === picked[tab]) return;
     picked[tab] = k;
     view.querySelectorAll("[data-acc]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.acc === k)));
     view.querySelectorAll(".donut circle[data-key]").forEach(c => c.classList.toggle("on", c.dataset.key === k));
     const t = state.model.worth?.t;
     keepPlace(() => {
       const panel = view.querySelector(".accounts > .panel.account");
-      trends.length = 1; // 위쪽 유동 자산 칸만 남기고 새 계좌 칸을 잇는다
-      panel.insertAdjacentHTML("afterend", accountPanel(views.find(v => v.key === k), color[k]));
+      trends = []; // 성과 칸은 고른 계좌 칸 하나뿐
+      panel.insertAdjacentHTML("afterend", panelOf(k));
       panel.remove();
       if (t?.length) paintTrends(state.model, t);
     });
