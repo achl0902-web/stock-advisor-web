@@ -1,6 +1,6 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
 import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
-import { SERIES, CASH, donut, line, bindLines } from "./chart.js";
+import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
 
@@ -8,14 +8,15 @@ const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코
 
 /* ---------- 계좌: 위에 기간, 전체 평가 추이, 계좌 구성 도넛, 고른 계좌의 추이·종목 구성 ---------- */
 const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
-const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["all", "전체"]];
+const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
 let period = "all";
 
-// 기간 처음보다 얼마나 바뀌었는지: "+1,234만원 (+4.2%) 10/24보다". 중간에 추가한 계좌는 빼고 잰다.
+// 기간 처음보다 얼마나 바뀌었는지: "+1,234만원 10/24보다". 중간에 추가한 계좌는 빼고 잰다.
 function changeLine(c) {
   if (!c) return "";
   const note = c.added.length ? `${c.added.join("·")} 추가분 빼고, 입금·출금 포함` : "입금·출금 포함";
-  return `<p class="delta"><b class="fig tone-${tone(c.d)}">${c.d > 0 ? "+" : c.d < 0 ? "−" : ""}${krwShort(Math.abs(c.d))} (${pct(c.r)})</b><span>${esc(c.since === "지금" ? "" : c.since.slice(5).replace("-", "/"))}보다, ${note}</span></p>`;
+  // 비율은 쓰지 않는다: 입금이 섞인 변화를 처음 금액으로 나누면 수익률처럼 읽힌다(처음 입금 직후부터 보면 수백만 %)
+  return `<p class="delta"><b class="fig tone-${tone(c.d)}">${c.d > 0 ? "+" : c.d < 0 ? "−" : ""}${krwShort(Math.abs(c.d))}</b><span>${esc(dayText(c.since))}보다, ${note}</span></p>`;
 }
 
 // key: 계좌 또는 "all". now: {계좌: 지금 평가액} (지금 시세로 계산된 계좌만)
@@ -92,12 +93,28 @@ const periodSeg = () => {
 };
 const colorOf = k => SERIES[accountKeys(state.model.accounts).indexOf(k) % SERIES.length]; // 같은 계좌는 어느 탭에서나 같은 색
 
+// 추이를 무엇으로 계산했는지: 거래내역이 있는 계좌는 그 기간, 나머지는 계좌 설정 변경 기록부터
+const topic = w => w + ((w.charCodeAt(w.length - 1) - 0xac00) % 28 ? "은" : "는"); // 받침에 따라 은·는
+
+function worthNote(keys) {
+  const w = state.model.worth;
+  if (!w?.t?.length) return "";
+  const md = d => d.slice(2).replaceAll("-", ".");
+  const traded = keys.filter(k => w.trades?.[k]);
+  const first = k => w.t[(w.v[k] || []).findIndex(v => v != null)];
+  const rest = keys.filter(k => !traded.includes(k) && first(k));
+  return `<p class="hint foot">${[
+    ...traded.map(k => `${esc(topic(accountShort(k)))} 증권사 거래내역(${md(w.trades[k].from)}~${md(w.trades[k].through)}, 원·달러 예수금과 RP 포함)`),
+    rest.length ? `${esc(topic(rest.map(k => accountShort(k)).join("·")))} 계좌 설정 변경 기록(${md(first(rest[0]))}부터)` : "",
+  ].filter(Boolean).join(", ")}으로 그날 종가에 맞춰 다시 계산합니다. 입금·출금도 평가액에 그대로 들어갑니다.</p>`;
+}
+
 export function renderLongTerm() {
   const keys = accountGroup(state.model.accounts, true);
   view.innerHTML = `
     ${subtabs(TABS, "long")}
     ${keys.length ? `${periodSeg()}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
-    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 유동 자산 합계에는 넣지 않습니다.</p>` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
+    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 유동 자산 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
   view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderLongTerm(); }));
   bindLines(view);
 }
@@ -133,7 +150,7 @@ function renderGroup() {
       </div>
       ${accountPanel(views.find(v => v.key === cur), color[cur])}
     </div>
-    ${state.model.worth?.t?.length ? `<p class="hint foot">평가액 추이는 계좌 설정의 변경 기록(${esc(state.model.worth.t[0].slice(5).replace("-", "/"))}부터)과 그날 종가로 다시 계산합니다. 입금·출금과 새로 추가한 계좌도 평가액에 그대로 들어갑니다. 퇴직연금·크립토는 연금·코인 탭에 따로 있습니다.</p>` : ""}`;
+    ${worthNote(keys)}`;
   view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => { picked[tab] = b.dataset.acc; renderGroup(); }));
   view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderGroup(); }));
   bindLines(view);
