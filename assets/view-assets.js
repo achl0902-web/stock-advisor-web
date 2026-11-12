@@ -126,7 +126,7 @@ function keepPlace(redraw) {
   const below = marks.map(el => [el, el.getBoundingClientRect().top]).filter(([, y]) => y >= TOP);
   const pick = below.length ? below.reduce((p, q) => q[1] < p[1] ? q : p) : null;
   redraw();
-  if (!pick || pick[1] > innerHeight) return;
+  if (!pick || pick[1] > innerHeight || !pick[0].isConnected) return; // 바꿔 끼운 칸이 기준이었으면 위쪽은 그대로다
   const d = pick[0].getBoundingClientRect().top - pick[1];
   if (Math.abs(d) >= 1) scrollBy(0, d);
   if (dragY != null) dragY = scrollY; // 높이 보정으로 옮긴 자리가 새 기준
@@ -279,7 +279,7 @@ export function renderLongTerm() {
   trends = [];
   view.innerHTML = `
     ${subtabs(TABS, "long")}
-    ${keys.length ? `${rangeBox()}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
+    ${keys.length ? `${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
     <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 유동 자산 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
   bindRange();
   drawTrends();
@@ -318,7 +318,28 @@ function renderGroup() {
       ${accountPanel(views.find(v => v.key === cur), color[cur])}
     </div>
     ${worthNote(keys)}`;
-  view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => { picked[tab] = b.dataset.acc; renderGroup(); }));
+  // 계좌를 고르면 아래 계좌 칸만 바꿔 끼운다. 화면 전체를 다시 그리면 그리는 사이 페이지가 잠깐 짧아져
+  // 아이폰 사파리가 스크롤을 맨 위쪽으로 끌어올린다. 도넛 조각을 눌러도 같다.
+  const pick = k => {
+    if (!keys.includes(k) || k === picked[tab]) return;
+    picked[tab] = k;
+    view.querySelectorAll("[data-acc]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.acc === k)));
+    view.querySelectorAll(".donut circle[data-key]").forEach(c => c.classList.toggle("on", c.dataset.key === k));
+    const t = state.model.worth?.t;
+    keepPlace(() => {
+      const panel = view.querySelector(".accounts > .panel.account");
+      trends.length = 1; // 위쪽 유동 자산 칸만 남기고 새 계좌 칸을 잇는다
+      panel.insertAdjacentHTML("afterend", accountPanel(views.find(v => v.key === k), color[k]));
+      panel.remove();
+      if (t?.length) paintTrends(state.model, t);
+    });
+  };
+  view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => pick(b.dataset.acc)));
+  view.querySelectorAll(".split .donut circle[data-key]").forEach(c => {
+    if (!keys.includes(c.dataset.key)) return;
+    c.classList.add("pickable");
+    c.addEventListener("click", () => pick(c.dataset.key));
+  });
   bindRange();
   drawTrends();
 }
