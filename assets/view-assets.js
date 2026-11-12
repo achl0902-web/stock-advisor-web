@@ -107,6 +107,7 @@ function bindRange() {
   view.querySelectorAll("[data-unit]").forEach(btn => btn.addEventListener("click", () => {
     unit = btn.dataset.unit;
     view.querySelectorAll("[data-unit]").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
+    view.querySelectorAll("[data-krw]").forEach(x => { x.textContent = short(+x.dataset.krw); }); // 합계·계좌·종목 평가액
     drawTrends();
   }));
   view.querySelectorAll("[data-period]").forEach(btn => btn.addEventListener("click", () => {
@@ -161,6 +162,9 @@ function realizedBlock(sum) {
 const usd = () => unitOn && unit === "USD";
 const full = v => usd() ? "$" + nf(0).format(Math.round(v)) : nf(0).format(Math.round(v)) + "원";
 const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + full(Math.abs(v));
+// 평가액 줄임 표기(1.24억원 ↔ $92.9K, 지금 환율). data-krw를 달아 두면 원/$를 바꿀 때 그 자리에서 글자만 바꾼다
+const short = v => usd() && state.model.fx ? usdShort(v / state.model.fx) : krwShort(v);
+const amt = v => v == null ? "–" : `<span data-krw="${v}">${esc(short(v))}</span>`;
 
 function drawTrends() {
   const m = state.model, t = m.worth?.t;
@@ -230,18 +234,18 @@ function accountPanel(v, color, { trendKey = null, now = undefined } = {}) {
   const rows = v.rows.map(({ h, q, value, pl, weight }, i) => {
     const unit = h.market === "CRYPTO" ? h.symbol : "주";
     return `<li class="hold">
-      <div class="hold-top"><b><i class="sw" style="background:${slices[i].color}"></i>${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</b><span class="fig">${value != null ? krwShort(value) : "–"}<small>${weight != null ? nf(1).format(weight) + "%" : ""}</small></span></div>
+      <div class="hold-top"><b><i class="sw" style="background:${slices[i].color}"></i>${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</b><span class="fig">${amt(value)}<small>${weight != null ? nf(1).format(weight) + "%" : ""}</small></span></div>
       <div class="hold-sub"><span>${qtyText(h.qty, unit)}${h.avg_price ? `, 평단 ${money(h.avg_price, h.currency)}` : ""}</span><span>${q?.price != null ? `<span class="fig">${money(q.price, h.currency)}</span>${pl != null ? ` <b class="fig tone-${tone(pl)}">${pct(pl)}</b>` : ""}` : "시세 없음"}</span></div>
     </li>`;
   }).join("");
   const cashText = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
-  const cashRow = v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${krwShort(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
+  const cashRow = v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${amt(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
   const basis = v.live
     ? `지금 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}.`
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
   const expo = v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<section class="panel account">
-    ${head(a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}${v.total != null ? krwShort(v.total) : "–"}</b>`)}
+    ${head(a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}${amt(v.total)}</b>`)}
     ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
     ${trend(trendKey ?? key, now !== undefined ? now : v.live ? { [key]: v.total } : null, a.label || key)}
     ${goalBlock(a)}${limitBlock(a, v)}
@@ -330,11 +334,11 @@ function renderGroup() {
         <section class="panel">
           ${head("계좌 구성", `<span class="hint">눌러서 계좌 보기</span>`)}
           <div class="split">
-            ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: krwShort(all), sub: `${views.length}개 계좌`, picked: cur }) : ""}
+            ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: short(all), krw: all, sub: `${views.length}개 계좌`, picked: cur }) : ""}
             <div class="picker" role="group" aria-label="계좌"><button type="button" data-acc="all" aria-pressed="${cur === "all"}">
-              <i class="sw sw-all" aria-hidden="true"></i><span>전체</span><b class="fig">${all != null ? krwShort(all) : "–"}</b><small></small>
+              <i class="sw sw-all" aria-hidden="true"></i><span>전체</span><b class="fig">${amt(all)}</b><small></small>
             </button>${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === cur}">
-              <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${v.total != null ? krwShort(v.total) : "–"}</b><small class="fig">${all ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
+              <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${amt(v.total)}</b><small class="fig">${all ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
             </button>`).join("")}</div>
           </div>
         </section>

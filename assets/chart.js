@@ -6,7 +6,7 @@ export const SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#
 export const CASH = "var(--dim)";
 
 /* ---------- 도넛: slices [{label, value, color}], 가운데 글자 두 줄 ---------- */
-export function donut(slices, { size = 160, center = "", sub = "", picked = null } = {}) {
+export function donut(slices, { size = 160, center = "", sub = "", picked = null, krw = null } = {}) {
   const total = slices.reduce((s, x) => s + Math.max(0, x.value || 0), 0);
   const r = 50, w = 14, c = 2 * Math.PI * r;
   const gap = slices.length > 1 ? 1.2 : 0; // 조각 사이 바탕색 틈
@@ -21,7 +21,7 @@ export function donut(slices, { size = 160, center = "", sub = "", picked = null
   }).join("") : `<circle r="${r}" cx="60" cy="60" fill="none" stroke="var(--raised)" stroke-width="${w}"/>`;
   return `<figure class="donut" style="--size:${size}px" role="img" aria-label="${esc(slices.map(x => `${x.label} ${total ? Math.round(x.value / total * 100) : 0}%`).join(", "))}">
     <svg viewBox="0 0 120 120" aria-hidden="true"><g transform="rotate(-90 60 60)">${arcs}</g></svg>
-    <figcaption><b class="fig">${esc(center)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</figcaption>
+    <figcaption><b class="fig"${krw != null ? ` data-krw="${krw}"` : ""}>${esc(center)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</figcaption>
   </figure>`;
 }
 
