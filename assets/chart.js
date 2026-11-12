@@ -31,7 +31,7 @@ export function dayText(d) {
   return d.slice(0, 4) === new Date().toISOString().slice(0, 4) ? d.slice(5).replace("-", "/") : d.slice(2).replaceAll("-", ".");
 }
 
-/* ---------- 추이 선: points [{t: "2026-11-02", v}], 비는 날은 끊는다 ---------- */
+/* ---------- 추이 선: points [{t: "2026-11-02", v, p?}], 비는 날은 끊는다. p(투자원금)가 있으면 점선으로 함께 ---------- */
 const charts = new Map();
 let seq = 0;
 
@@ -39,8 +39,9 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
   const id = `ln${++seq}`;
   const vals = points.map(p => p.v).filter(v => v != null);
   if (vals.length < 2) return `<p class="hint">추이를 그릴 만큼 기록이 아직 없습니다.</p>`;
+  const refs = points.map(p => p.p).filter(v => v != null);
   const W = 600, H = height, pad = { t: 10, r: 8, b: 22, l: 8 };
-  let lo = Math.min(...vals), hi = Math.max(...vals);
+  let lo = Math.min(...vals, ...refs), hi = Math.max(...vals, ...refs);
   const span = hi - lo || hi * 0.02 || 1;
   lo -= span * 0.12; hi += span * 0.12;
   const x = i => pad.l + (points.length === 1 ? 0 : i / (points.length - 1)) * (W - pad.l - pad.r);
@@ -53,6 +54,8 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
   const path = r => r.map((i, k) => `${k ? "L" : "M"}${x(i).toFixed(1)},${y(points[i].v).toFixed(1)}`).join("");
   const area = r => `${path(r)}L${x(r.at(-1)).toFixed(1)},${H - pad.b}L${x(r[0]).toFixed(1)},${H - pad.b}Z`;
   const grid = [0.25, 0.5, 0.75].map(f => pad.t + f * (H - pad.t - pad.b));
+  // 투자원금은 입출금이 있는 날만 바뀌는 계단
+  const refPath = refs.length ? points.map((p, i) => p.p == null ? "" : `${i && points[i - 1].p != null ? `L${x(i).toFixed(1)},${y(points[i - 1].p).toFixed(1)}L` : "M"}${x(i).toFixed(1)},${y(p.p).toFixed(1)}`).join("") : "";
   const last = points.length - 1 - [...points].reverse().findIndex(p => p.v != null);
   // 점은 SVG가 가로로 늘어나도 동그랗게 남도록 HTML로 얹는다
   const pos = i => `left:${(x(i) / W * 100).toFixed(2)}%;top:${(y(points[i].v) / H * 100).toFixed(2)}%`;
@@ -60,7 +63,9 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
   return `<div class="line" data-line="${id}">
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}">
       ${grid.map(g => `<line class="ln-grid" x1="${pad.l}" x2="${W - pad.r}" y1="${g}" y2="${g}"/>`).join("")}
-      ${runs.map(r => `<path class="ln-area" d="${area(r)}"/><path class="ln-path" d="${path(r)}"/>`).join("")}
+      ${runs.map(r => `<path class="ln-area" d="${area(r)}"/>`).join("")}
+      ${refPath ? `<path class="ln-ref" d="${refPath}"/>` : ""}
+      ${runs.map(r => `<path class="ln-path" d="${path(r)}"/>`).join("")}
       <line class="ln-cross" x1="0" x2="0" y1="${pad.t}" y2="${H - pad.b}"/>
     </svg>
     ${marks.map(m => { const i = points.findIndex(p => p.t === m.t); return i < 0 || points[i].v == null ? "" : `<i class="ln-pt ln-mark" style="${pos(i)}" title="${esc(m.label)}"></i>`; }).join("")}
@@ -93,10 +98,11 @@ export function bindLines(root) {
       tip.hidden = false;
       tip.textContent = "";
       const b = document.createElement("b"); b.className = "fig"; b.textContent = c.fmt(p.v);
+      const r = p.p != null ? Object.assign(document.createElement("small"), { textContent: `원금 ${c.fmt(p.p)}` }) : null;
       const s = document.createElement("small");
       const m = c.marks.find(x => x.t === p.t);
       s.textContent = dayText(p.t) + (m ? ` ${m.label}` : "");
-      tip.append(b, s);
+      tip.append(b, ...(r ? [r] : []), s);
       const left = X / c.W * 100;
       tip.style.left = `${Math.min(82, Math.max(18, left))}%`;
     };

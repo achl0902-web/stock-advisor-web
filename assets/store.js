@@ -215,44 +215,56 @@ export function accountView(key) {
   return { key, a, snap, ...valueAccount(a, m.quotes, m.fx, snap?.brief.portfolio) };
 }
 
-/* ---------- 평가액 추이 (board-data networth--history.json, 시세판을 열 때마다 다시 계산) ---------- */
-// key가 "all"이면 계좌 합계. 계좌가 설정에 생기기 전 날짜는 합계에서 빼고, 그날 시세가 비면 그날을 비운다.
-// now({계좌: 지금 평가액})를 주면 마지막 날 뒤에 지금 값을 붙인다. marks는 계좌가 처음 생긴 날(합계가 그만큼 뛴다).
-// change는 기간 처음에 있던 계좌만으로 잰 변화(중간에 추가한 계좌는 added에 이름만).
-export function worthSeries(worth, key, days, now = null, today = todayKST()) {
-  if (!worth?.t?.length) return { points: [], marks: [], change: null };
-  // key: 계좌 하나, 계좌 목록(그 계좌들 합계), "all"(전부 합계)
+/* ---------- 평가액 추이 (board-data networth--history.json, 시세판을 열 때마다 다시 계산) ----------
+   worth.v[계좌][i] = 그날 평가액, worth.f[계좌][i] = 그날 순입출금(입금 +, 출금·증여 −).
+   투자손익 = 기말 − 기초 − 그 사이 순입출금, 투자원금 = 기초 + 순입출금, 투자수익률 = 투자손익 ÷ 투자원금(증권사 투자성과와 같은 식). */
+
+// key: 계좌 하나, 계좌 목록(합계), "all". win: {from, to} 날짜(없으면 처음·끝). now({계좌: 지금 평가액})를 주면 끝이 오늘일 때 지금 값을 붙인다.
+// 계좌가 기간 중에 처음 생기면 그날 평가액을 입금으로 본다(합계에 계좌가 더해져도 손익이 되지 않게).
+export function worthSeries(worth, key, win = {}, now = null, today = todayKST()) {
+  const empty = { points: [], marks: [], sum: null };
+  if (!worth?.t?.length) return empty;
   const keys = Array.isArray(key) ? key.filter(k => worth.v[k]) : key === "all" ? Object.keys(worth.v) : [key];
   const first = Object.fromEntries(keys.map(k => [k, (worth.v[k] || []).findIndex(v => v != null)]));
-  const from = days ? new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10) : "";
-  const rows = worth.t.map((t, i) => ({ t, by: Object.fromEntries(keys.filter(k => first[k] >= 0 && i >= first[k]).map(k => [k, worth.v[k][i]])) }))
-    .filter(r => r.t >= from);
-  if (now && rows.length) {
-    const by = Object.fromEntries(keys.filter(k => now[k] != null).map(k => [k, now[k]]));
+  const end = win.to || worth.t.at(-1);
+  let rows = worth.t.map((t, i) => {
+    const by = {}, fl = {};
+    for (const k of keys) {
+      if (first[k] < 0 || i < first[k]) continue; // 아직 설정에 없던 계좌
+      by[k] = worth.v[k][i];
+      // 처음 생긴 날은 그날 평가액 전부가 들어온 돈(그날 거래내역 입출금은 그 안에 있다)
+      fl[k] = i === first[k] ? (worth.v[k][i] ?? 0) : (worth.f?.[k]?.[i] || 0);
+    }
+    return { t, by, fl };
+  });
+  // 기초는 시작일 전날 마감 값(증권사 투자성과와 같이 시작일 하루치 손익도 기간에 넣는다)
+  const startAt = win.from ? Math.max(0, worth.t.findIndex(t => t >= win.from) - 1) : 0;
+  rows = rows.filter((r, i) => i >= startAt && r.t <= end);
+  const lead = rows.findIndex(r => Object.keys(r.by).length);
+  if (lead < 0) return empty;
+  rows = rows.slice(lead);
+  if (now && end >= worth.t.at(-1)) {
+    const by = Object.fromEntries(keys.filter(k => now[k] != null && first[k] >= 0).map(k => [k, now[k]]));
     if (rows.at(-1).t === today) rows.at(-1).by = { ...rows.at(-1).by, ...by };
-    else rows.push({ t: "지금", by });
+    else rows.push({ t: "지금", by: { ...rows.at(-1).by, ...by }, fl: {} });
   }
   // 생긴 계좌 중 하나라도 그날 값이 비면 그날 합계도 비운다
-  const sum = by => { const v = Object.values(by); return v.length && v.every(x => x != null) ? v.reduce((a, b) => a + b, 0) : null; };
-  // 그 계좌(들)가 생기기 전 날짜는 앞에서 잘라 낸다
-  const lead = rows.findIndex(r => Object.keys(r.by).length);
-  if (lead > 0) rows.splice(0, lead);
-  const points = lead < 0 ? [] : rows.map(r => ({ t: r.t, v: sum(r.by) }));
-  // 여러 계좌 합계에서만: 계좌 하나짜리 선은 생긴 날부터 시작하므로 표시할 것이 없다
-  const marks = keys.filter(k => keys.length > 1 && first[k] > 0).map(k => ({ t: worth.t[first[k]], label: `${worth.labels?.[k] || k} 추가` }))
+  const total = by => { const v = Object.values(by); return v.length && v.every(x => x != null) ? v.reduce((a, b) => a + b, 0) : null; };
+  const i0 = rows.findIndex(r => total(r.by) != null);
+  if (i0 < 0) return empty;
+  const base = total(rows[i0].by);
+  let cum = 0;
+  const points = rows.map((r, i) => {
+    if (i > i0) cum += Object.values(r.fl).reduce((a, b) => a + b, 0);
+    return { t: r.t, v: total(r.by), p: i < i0 ? null : base + cum }; // p = 그날까지 투자원금
+  });
+  const i1 = points.length - 1 - [...points].reverse().findIndex(p => p.v != null);
+  const flows = points[i1].p - base, endV = points[i1].v;
+  const pnl = endV - base - flows, principal = base + flows;
+  const sum = { from: points[i0].t, to: points[i1].t, base, end: endV, flows, principal, pnl, rate: principal > 0 ? pnl / principal * 100 : null };
+  const marks = (worth.events ? keys.flatMap(k => (worth.events[k] || []).map(e => ({ t: e.d, label: e.label }))) : [])
     .filter(m => points.some(p => p.t === m.t));
-  const i0 = points.findIndex(p => p.v != null), i1 = points.length - 1 - [...points].reverse().findIndex(p => p.v != null);
-  let change = null;
-  if (i0 >= 0 && i1 > i0) {
-    const base = Object.keys(rows[i0].by);
-    const end = base.map(k => rows[i1].by[k]);
-    if (end.every(v => v != null)) {
-      const v0 = points[i0].v, v1 = end.reduce((a, b) => a + b, 0);
-      const added = keys.filter(k => !base.includes(k) && rows[i1].by[k] != null).map(k => worth.labels?.[k] || k);
-      change = { d: v1 - v0, r: (v1 / v0 - 1) * 100, since: points[i0].t, added };
-    }
-  }
-  return { points, marks, change };
+  return { points, marks, sum };
 }
 
 /* ---------- 관심가·일정 (config/price_alerts.json) ---------- */

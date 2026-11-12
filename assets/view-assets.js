@@ -6,25 +6,104 @@ import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, q
 
 const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코인", "long"], ["#/assets/levels", "관심가", "levels"], ["#/assets/etf", "ETF", "etf"]];
 
-/* ---------- 계좌: 위에 기간, 전체 평가 추이, 계좌 구성 도넛, 고른 계좌의 추이·종목 구성 ---------- */
+/* ---------- 계좌: 위에 기간(버튼·슬라이더), 투자성과와 평가액 추이, 계좌 구성 도넛, 고른 계좌의 성과·종목 구성 ---------- */
 const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
-let period = "all";
+// 고른 기간: preset을 누르면 끝은 마지막 날, 슬라이더를 움직이면 preset이 풀린다. 날짜는 worth.t의 값
+const win = { preset: "365", from: null, to: null };
+let trends = []; // 지금 화면에 그린 성과 칸들 [{key, now, label}]: 기간을 바꾸면 이것만 다시 그린다
 
-// 기간 처음보다 얼마나 바뀌었는지: "+1,234만원 10/24보다". 중간에 추가한 계좌는 빼고 잰다.
-function changeLine(c) {
-  if (!c) return "";
-  const note = c.added.length ? `${c.added.join("·")} 추가분 빼고, 입금·출금 포함` : "입금·출금 포함";
-  // 비율은 쓰지 않는다: 입금이 섞인 변화를 처음 금액으로 나누면 수익률처럼 읽힌다(처음 입금 직후부터 보면 수백만 %)
-  return `<p class="delta"><b class="fig tone-${tone(c.d)}">${c.d > 0 ? "+" : c.d < 0 ? "−" : ""}${krwShort(Math.abs(c.d))}</b><span>${esc(dayText(c.since))}보다, ${note}</span></p>`;
+function presetWindow(t) {
+  if (win.preset === "all") return { from: t[0], to: t.at(-1) };
+  if (!win.preset) return { from: win.from || t[0], to: win.to || t.at(-1) };
+  const from = new Date(Date.parse(t.at(-1)) - +win.preset * 86400000).toISOString().slice(0, 10);
+  return { from: t.find(d => d >= from) || t[0], to: t.at(-1) };
 }
 
-// key: 계좌 또는 "all". now: {계좌: 지금 평가액} (지금 시세로 계산된 계좌만)
+// 기간 고르기: 버튼(1주~전체)과 시작·끝 손잡이 두 개짜리 슬라이더. 화면 위에 하나, 아래 모든 성과 칸에 같이 쓴다
+function rangeBox() {
+  const t = state.model.worth?.t;
+  if (!t?.length) return "";
+  const w = presetWindow(t);
+  const span = (Date.parse(t.at(-1)) - Date.parse(t[0])) / 86400000;
+  return `<section class="range" aria-label="기간">
+    <div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>
+    <div class="slider" style="--a:${t.indexOf(w.from) / (t.length - 1) * 100}%;--b:${t.indexOf(w.to) / (t.length - 1) * 100}%">
+      <span class="slider-track" aria-hidden="true"><i></i></span>
+      <input type="range" id="r-from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일">
+      <input type="range" id="r-to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일">
+    </div>
+    <p class="range-dates"><b class="fig" id="r-from-l">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" id="r-to-l">${esc(dayText(w.to))}</b><span>까지</span></p>
+  </section>`;
+}
+
+function bindRange() {
+  const t = state.model.worth?.t;
+  if (!t?.length) return;
+  const from = document.getElementById("r-from"), to = document.getElementById("r-to"), box = view.querySelector(".slider");
+  let raf = 0;
+  const apply = moved => {
+    let a = +from.value, b = +to.value;
+    if (a > b - 1) { if (moved === from) a = from.value = Math.max(0, b - 1); else b = to.value = Math.min(t.length - 1, a + 1); }
+    Object.assign(win, { preset: null, from: t[a], to: t[b] });
+    box.style.setProperty("--a", `${a / (t.length - 1) * 100}%`);
+    box.style.setProperty("--b", `${b / (t.length - 1) * 100}%`);
+    document.getElementById("r-from-l").textContent = dayText(t[a]);
+    document.getElementById("r-to-l").textContent = dayText(t[b]);
+    view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", "false"));
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(drawTrends); // 끄는 동안 한 화면에 한 번만 다시 그린다
+  };
+  from.addEventListener("input", () => apply(from));
+  to.addEventListener("input", () => apply(to));
+  view.querySelectorAll("[data-period]").forEach(btn => btn.addEventListener("click", () => {
+    win.preset = btn.dataset.period;
+    const w = presetWindow(t);
+    from.value = t.indexOf(w.from); to.value = t.indexOf(w.to);
+    box.style.setProperty("--a", `${from.value / (t.length - 1) * 100}%`);
+    box.style.setProperty("--b", `${to.value / (t.length - 1) * 100}%`);
+    document.getElementById("r-from-l").textContent = dayText(w.from);
+    document.getElementById("r-to-l").textContent = dayText(w.to);
+    view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
+    drawTrends();
+  }));
+}
+
+// 성과 칸 자리: 그리기는 drawTrends가 한다. key: 계좌·계좌 목록, now: {계좌: 지금 평가액}
 function trend(key, now, label) {
-  const m = state.model;
-  if (!m.worth?.t?.length) return `<p class="hint">평가액 추이는 시세 탭을 한 번 열면 계산됩니다.</p>`;
-  const { points, marks, change } = worthSeries(m.worth, key, period === "all" ? null : +period, now);
-  return `${changeLine(change)}${line(points, { fmt: krwShort, marks, label: `${label} 평가액 추이` })}`;
+  if (!state.model.worth?.t?.length) return `<p class="hint">투자성과와 평가액 추이는 시세 탭을 한 번 열면 계산됩니다.</p>`;
+  trends.push({ key, now, label });
+  return `<div class="trend" data-trend="${trends.length - 1}"></div>`;
+}
+
+const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + nf(0).format(Math.abs(Math.round(v))) + "원";
+
+function drawTrends() {
+  const m = state.model, t = m.worth?.t;
+  if (!t?.length) return;
+  const w = presetWindow(t);
+  view.querySelectorAll("[data-trend]").forEach(el => {
+    const { key, now, label } = trends[+el.dataset.trend] || {};
+    if (!key) return;
+    const { points, marks, sum } = worthSeries(m.worth, key, w, now);
+    if (!sum) { el.innerHTML = `<p class="hint">이 기간에는 평가 기록이 없습니다.</p>`; return; }
+    const legend = marks.length ? `<ul class="ln-legend">${marks.map(x => `<li><i></i>${esc(dayText(x.t))} ${esc(x.label)}</li>`).join("")}</ul>` : "";
+    el.innerHTML = `
+      <div class="perf">
+        <div><span>투자손익</span><b class="fig tone-${tone(sum.pnl)}">${won(sum.pnl)}</b></div>
+        <div><span>투자수익률</span><b class="fig tone-${tone(sum.pnl)}">${sum.rate != null ? pct(sum.rate, 2) : "–"}</b></div>
+      </div>
+      ${line(points, { fmt: krwShort, marks, label: `${label} 평가액과 투자원금 추이` })}
+      <p class="ln-key"><span><i class="k-v"></i>평가액</span><span><i class="k-p"></i>투자원금(기초 + 입출금)</span></p>
+      ${legend}
+      <dl class="facts perf-facts">
+        <div><dt>기초 평가금액 <small>${esc(dayText(sum.from))}</small></dt><dd class="fig">${nf(0).format(sum.base)}원</dd></div>
+        <div><dt>기말 평가금액 <small>${esc(dayText(sum.to))}</small></dt><dd class="fig">${nf(0).format(sum.end)}원</dd></div>
+        <div><dt>순 입출금</dt><dd class="fig">${won(sum.flows)}</dd></div>
+        <div><dt>투자원금</dt><dd class="fig">${nf(0).format(sum.principal)}원</dd></div>
+      </dl>`;
+  });
+  bindLines(view);
 }
 
 function limitBlock(a, v) {
@@ -86,11 +165,6 @@ function accountPanel(v, color) {
 // 계좌 탭은 바로 쓸 수 있는 돈(주 계좌·바이오)의 합계와 구성. 연금·코인 탭은 합계 없이 계좌마다 따로.
 export const renderAccounts = () => renderGroup();
 
-const periodSeg = () => {
-  const w = state.model.worth;
-  const span = w?.t?.length ? (Date.parse(todayKST()) - Date.parse(w.t[0])) / 86400000 : 0;
-  return `<div class="seg" role="group" aria-label="기간">${PERIODS.map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${period === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${t}</button>`).join("")}</div>`;
-};
 const colorOf = k => SERIES[accountKeys(state.model.accounts).indexOf(k) % SERIES.length]; // 같은 계좌는 어느 탭에서나 같은 색
 
 // 추이를 무엇으로 계산했는지: 거래내역이 있는 계좌는 그 기간, 나머지는 계좌 설정 변경 기록부터
@@ -106,17 +180,18 @@ function worthNote(keys) {
   return `<p class="hint foot">${[
     ...traded.map(k => `${esc(topic(accountShort(k)))} 증권사 거래내역(${md(w.trades[k].from)}~${md(w.trades[k].through)}, 원·달러 예수금과 RP 포함)`),
     rest.length ? `${esc(topic(rest.map(k => accountShort(k)).join("·")))} 계좌 설정 변경 기록(${md(first(rest[0]))}부터)` : "",
-  ].filter(Boolean).join(", ")}으로 그날 종가에 맞춰 다시 계산합니다. 입금·출금도 평가액에 그대로 들어갑니다.</p>`;
+  ].filter(Boolean).join(", ")}으로 그날 종가에 맞춰 다시 계산합니다. 투자손익 = 기말 − 기초 − 순 입출금, 투자수익률 = 투자손익 ÷ 투자원금(기초 + 순 입출금). 순 입출금은 거래내역의 이체·충전·출금과 주식 대체(그날 종가), 계좌 설정이 바뀐 날은 그날 종가로 잰 차이입니다.</p>`;
 }
 
 export function renderLongTerm() {
   const keys = accountGroup(state.model.accounts, true);
+  trends = [];
   view.innerHTML = `
     ${subtabs(TABS, "long")}
-    ${keys.length ? `${periodSeg()}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
+    ${keys.length ? `${rangeBox()}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
     <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 유동 자산 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
-  view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderLongTerm(); }));
-  bindLines(view);
+  bindRange();
+  drawTrends();
 }
 
 function renderGroup() {
@@ -129,9 +204,10 @@ function renderGroup() {
   const color = Object.fromEntries(keys.map(k => [k, colorOf(k)]));
   const title = "유동 자산";
   const all = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
+  trends = [];
   view.innerHTML = `
     ${subtabs(TABS, tab)}
-    ${periodSeg()}
+    ${rangeBox()}
     <div class="accounts">
       <div class="col">
         <section class="panel">
@@ -152,8 +228,8 @@ function renderGroup() {
     </div>
     ${worthNote(keys)}`;
   view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => { picked[tab] = b.dataset.acc; renderGroup(); }));
-  view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderGroup(); }));
-  bindLines(view);
+  bindRange();
+  drawTrends();
 }
 
 /* ---------- 관심가: 종목마다 가격선을 높은 값부터 세우고 그 사이에 현재가를 끼운다 ---------- */

@@ -327,6 +327,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .ln-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .ln-path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .ln-area { fill: var(--accent-wash); opacity: .55; }
+.ln-ref { fill: none; stroke: var(--sub); stroke-width: 1.5; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; opacity: .8; }
 .ln-cross { stroke: var(--sub); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0; }
 .line.is-on .ln-cross { opacity: .7; }
 .ln-pt { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; pointer-events: none; }
@@ -341,6 +342,39 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .ln-tip small { font-size: 12px; color: var(--sub); }
 .panel > .line:last-child { margin-bottom: 0; }
 .ln-tip[hidden], .ln-pt[hidden] { display: none; }
+.ln-key { display: flex; gap: 14px; margin: -2px 0 8px; font-size: 12px; color: var(--dim); }
+.ln-key i { display: inline-block; width: 14px; height: 0; margin-right: 6px; vertical-align: 3px; border-top: 2px solid var(--accent); }
+.ln-key i.k-p { border-top: 2px dashed var(--sub); }
+
+/* 기간: 버튼과 손잡이 두 개 슬라이더(QLD 백테스터처럼). 위쪽 하나가 아래 모든 성과 칸에 같이 쓰인다 */
+.range { display: grid; gap: 10px; padding: 12px 14px 10px; border-radius: var(--r-panel); background: var(--panel); }
+.range .seg { background: var(--raised); }
+.slider { position: relative; height: 32px; }
+.slider-track { position: absolute; left: 11px; right: 11px; top: 14px; height: 4px; border-radius: 4px; background: var(--raised); }
+.slider-track i { position: absolute; top: 0; bottom: 0; left: var(--a); right: calc(100% - var(--b)); border-radius: 4px; background: var(--accent); }
+.slider input { position: absolute; inset: 0; width: 100%; height: 32px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+.slider input::-webkit-slider-runnable-track { background: none; height: 32px; }
+.slider input::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 22px; height: 22px; margin-top: 5px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px var(--accent-wash), inset 0 0 0 5px var(--accent); cursor: grab; }
+.slider input::-moz-range-thumb { pointer-events: auto; width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 4px var(--accent-wash), inset 0 0 0 5px var(--accent); cursor: grab; }
+.slider input::-moz-range-track { background: none; }
+.slider input:focus-visible { outline: none; }
+.slider input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ink); outline-offset: 3px; }
+.range-dates { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--dim); }
+.range-dates b { font-size: 15px; font-weight: 600; color: var(--ink); }
+
+/* 투자성과: 손익을 크게, 수익률을 옆에. 아래 네 칸은 증권사 투자성과 화면과 같은 이름 */
+.perf { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: end; margin: 2px 0 6px; }
+.perf > div { display: grid; gap: 0; min-width: 0; }
+.perf span { font-size: 13px; color: var(--sub); }
+.perf b { font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -.02em; white-space: nowrap; }
+.perf > div:last-child { justify-items: end; }
+.perf > div:last-child b { font-size: 20px; }
+.perf-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; }
+.perf-facts dt small { color: var(--dim); }
+.perf-facts dd { font-size: 15px; }
+.panel .trend + .split, .panel .trend + .gauge { margin-top: 14px; }
+.ln-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -2px 0 10px; font-size: 13px; color: var(--dim); }
+.ln-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--sub); vertical-align: 0; }
 
 /* ---------- 자산: 관심가 ---------- */
 .group { display: grid; gap: 8px; }
