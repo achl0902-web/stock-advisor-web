@@ -49,4 +49,4 @@
 - `assets/view-home.js`, `view-log.js`, `view-assets.js`: 탭별 화면
 - `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
 - `assets/app.css`: 판단 일지 스타일
-- `sise.html`, `assets/sise.js`: 시세판. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다(탭과 색은 `sise.html`이 공용 파일로 잇습니다)
+- `sise.html`, `assets/sise.js`: 시세판. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다(예외: 차트의 trading 공급자에 `getExecutions`를 한 줄 덧대, 스냅샷 관심종목의 `fills`(내 매수·매도)를 차트에 ▲▼로 찍는다)(탭과 색은 `sise.html`이 공용 파일로 잇습니다)

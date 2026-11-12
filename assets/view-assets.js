@@ -1,5 +1,5 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
-import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
+import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
@@ -163,13 +163,30 @@ const usd = () => unitOn && unit === "USD";
 const full = v => usd() ? "$" + nf(0).format(Math.round(v)) : nf(0).format(Math.round(v)) + "원";
 const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + full(Math.abs(v));
 // 평가액 줄임 표기(1.24억원 ↔ $92.9K, 지금 환율). data-krw를 달아 두면 원/$를 바꿀 때 그 자리에서 글자만 바꾼다
-const short = v => usd() && state.model.fx ? usdShort(v / state.model.fx) : krwShort(v);
+// 끝날을 지난 날로 옮겼으면 그날 환율, 아니면 지금 환율
+const rate = () => { const i = asOfIdx(); return i == null ? state.model.fx : viewFx(i) || state.model.fx; };
+const viewFx = i => { const fx = state.model.worth?.fx || []; for (let j = i; j >= 0; j--) if (fx[j]) return fx[j]; return null; };
+const short = v => usd() && rate() ? usdShort(v / rate()) : krwShort(v);
 const amt = v => v == null ? "–" : `<span data-krw="${v}">${esc(short(v))}</span>`;
+
+// 끝 손잡이가 마지막 날이 아니면 그 날의 위치(구성·종목을 그날 것으로), 마지막 날이면 null(지금 시세)
+function asOfIdx() {
+  const w = state.model.worth, t = w?.t;
+  if (!t?.length || !w.pos) return null;
+  const i = t.indexOf(win.to);
+  return i < 0 || i === t.length - 1 ? null : i;
+}
+const viewAt = k => { const i = asOfIdx(); return (i != null && viewOn(k, i)) || accountView(k); };
+let holds = null, holdsAt; // 지금 화면의 구성·종목을 끝날에 맞춰 다시 그리는 함수, 그린 끝날
 
 function drawTrends() {
   const m = state.model, t = m.worth?.t;
   if (!t?.length) return;
-  keepPlace(() => paintTrends(m, t));
+  keepPlace(() => {
+    paintTrends(m, t);
+    const i = asOfIdx();
+    if (holds && i !== holdsAt) { holdsAt = i; holds(); }
+  });
 }
 function paintTrends(m, t) {
   const w = presetWindow(t);
@@ -225,8 +242,8 @@ function goalBlock(a) {
   </div>`;
 }
 
-function accountPanel(v, color, { trendKey = null, now = undefined } = {}) {
-  const { a, key } = v, m = state.model;
+function holdBlock(v) {
+  const { a } = v, m = state.model;
   const safe = a.safe_assets || {};
   // 종목 색은 설정 파일 순서를 따른다(비중이 바뀌어도 같은 종목은 같은 색). 현금은 회색.
   const slices = v.rows.map((r, i) => ({ key: r.h.symbol, label: m.names[r.h.symbol] || r.h.symbol, value: r.value || 0, color: SERIES[i % SERIES.length] }));
@@ -240,21 +257,36 @@ function accountPanel(v, color, { trendKey = null, now = undefined } = {}) {
   }).join("");
   const cashText = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
   const cashRow = v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${amt(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
-  const basis = v.live
+  const basis = v.on
+    ? `${dayText(v.on)} 종가로 잰 그날 보유입니다(끝 손잡이 날짜). 그날 평단은 알 수 없어 뺐습니다.`
+    : v.live
     ? `지금 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}.`
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
-  const expo = v.snap?.brief.portfolio?.effective_exposure_pct;
-  return `<section class="panel account">
-    ${head(a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}${amt(v.total)}</b>`)}
-    ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
-    ${trend(trendKey ?? key, now !== undefined ? now : v.live ? { [key]: v.total } : null, a.label || key)}
-    ${goalBlock(a)}${limitBlock(a, v)}
-    <div class="split">
+  const expo = v.on ? null : v.snap?.brief.portfolio?.effective_exposure_pct;
+  return `<div class="split">
       ${v.total && slices.length > 1 ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
-      <ul class="holds">${rows}${cashRow}</ul>
+      <ul class="holds">${rows || (v.cash > 0 ? "" : `<li class="hint">그날은 이 계좌에 들고 있던 것이 없습니다.</li>`)}${cashRow}</ul>
     </div>
-    <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>
+    <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>`;
+}
+
+// 계좌 칸: 이름·평가액, 성과 추이, 목표, 구성. 구성(data-hold)과 평가액(data-total)은 끝날을 옮기면 그 자리에서 바뀐다
+// (live: 성과 추이 끝에 붙일 지금 평가액은 끝날과 상관없이 지금 값)
+function accountPanel(v, color, { trendKey = null, now = undefined, live = v } = {}) {
+  const { a, key } = v;
+  return `<section class="panel account" data-key="${esc(key)}">
+    ${head(a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}<span data-total>${amt(v.total)}</span></b>`)}
+    ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
+    ${trend(trendKey ?? key, now !== undefined ? now : live.live ? { [key]: live.total } : null, a.label || key)}
+    ${goalBlock(a)}${limitBlock(a, live)}
+    <div data-hold>${holdBlock(v)}</div>
   </section>`;
+}
+// 끝날이 바뀌면 칸의 평가액과 구성만 바꾼다
+function refreshPanel(panel, v) {
+  if (!panel || !v) return;
+  panel.querySelector("[data-total]").innerHTML = amt(v.total);
+  panel.querySelector("[data-hold]").innerHTML = holdBlock(v);
 }
 
 // 계좌 탭은 바로 쓸 수 있는 돈(주 계좌·바이오)의 합계와 구성. 연금·코인 탭은 합계 없이 계좌마다 따로.
@@ -283,8 +315,10 @@ export function renderLongTerm() {
   trends = [];
   view.innerHTML = `
     ${subtabs(TABS, "long")}
-    ${keys.length ? `${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
+    ${keys.length ? `${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(viewAt(k), colorOf(k), { live: accountView(k) })).join("")}</div>
     <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 전체 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
+  holds = () => keys.forEach(k => refreshPanel(view.querySelector(`.panel.account[data-key="${CSS.escape(k)}"]`), viewAt(k)));
+  holdsAt = asOfIdx();
   bindRange();
   drawTrends();
 }
@@ -308,40 +342,45 @@ function mergedView(views) {
   });
   const sum = f => views.reduce((s, v) => s + (v.a[f] || 0), 0);
   const a = { label: "전체 계좌", holdings: rows.map(r => r.h), cash_krw: sum("cash_krw"), cash_usd: sum("cash_usd") };
-  return { key: "all", a, rows, cash, total, live: views.every(v => v.live), cashPct: total ? cash / total * 100 : null, snap: null };
+  return { key: "all", a, rows, cash, total, live: views.every(v => v.live), cashPct: total ? cash / total * 100 : null, snap: null, on: views.find(v => v.on)?.on };
 }
 
 function renderGroup() {
   const tab = "accounts";
   const keys = accountGroup(state.model.accounts, false);
   if (!keys.length) { view.innerHTML = `${subtabs(TABS, tab)}<p class="none">이 묶음의 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`; return; }
-  const views = keys.map(accountView);
   if (picked[tab] !== "all" && !keys.includes(picked[tab])) picked[tab] = "all";
   const cur = picked[tab];
   const color = Object.fromEntries(keys.map(k => [k, colorOf(k)]));
-  const merged = mergedView(views);
-  const all = merged.total;
+  const live = keys.map(accountView); // 지금 시세(성과 추이 끝의 '지금' 점)
+  const nowAll = Object.fromEntries(live.filter(v => v.live).map(v => [v.key, v.total]));
+  // 끝날의 구성: 끝 손잡이가 마지막 날이면 지금, 아니면 그날
+  const views = () => keys.map(viewAt);
+  const viewOf = (k, vs = views()) => k === "all" ? mergedView(vs) : vs.find(v => v.key === k);
   // 고른 계좌 칸: 전체는 계좌를 합친 성과·종목, 아니면 그 계좌
   const panelOf = k => k === "all"
-    ? accountPanel(merged, null, { trendKey: keys, now: Object.fromEntries(views.filter(v => v.live).map(v => [v.key, v.total])) })
-    : accountPanel(views.find(v => v.key === k), color[k]);
+    ? accountPanel(viewOf(k), null, { trendKey: keys, now: nowAll, live: mergedView(live) })
+    : accountPanel(viewOf(k), color[k], { live: live.find(v => v.key === k) });
+  // 계좌 구성(도넛·고르기 단추)
+  const comp = vs => {
+    const all = mergedView(vs).total, on = vs.find(v => v.on)?.on;
+    return `${head("계좌 구성", `<span class="hint">${on ? `${esc(dayText(on))} 기준` : "눌러서 계좌 보기"}</span>`)}
+          <div class="split">
+            ${all ? donut(vs.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: short(all), krw: all, sub: `${vs.length}개 계좌`, picked: picked[tab] }) : ""}
+            <div class="picker" role="group" aria-label="계좌"><button type="button" data-acc="all" aria-pressed="${picked[tab] === "all"}">
+              <i class="sw sw-all" aria-hidden="true"></i><span>전체</span><b class="fig">${amt(all)}</b><small></small>
+            </button>${vs.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === picked[tab]}">
+              <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${amt(v.total)}</b><small class="fig">${all && v.total != null ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
+            </button>`).join("")}</div>
+          </div>`;
+  };
   trends = [];
   view.innerHTML = `
     ${subtabs(TABS, tab)}
     ${rangeBox({ units: true })}
     <div class="accounts">
       <div class="col">
-        <section class="panel">
-          ${head("계좌 구성", `<span class="hint">눌러서 계좌 보기</span>`)}
-          <div class="split">
-            ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: short(all), krw: all, sub: `${views.length}개 계좌`, picked: cur }) : ""}
-            <div class="picker" role="group" aria-label="계좌"><button type="button" data-acc="all" aria-pressed="${cur === "all"}">
-              <i class="sw sw-all" aria-hidden="true"></i><span>전체</span><b class="fig">${amt(all)}</b><small></small>
-            </button>${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === cur}">
-              <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${amt(v.total)}</b><small class="fig">${all ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
-            </button>`).join("")}</div>
-          </div>
-        </section>
+        <section class="panel" data-comp>${comp(views())}</section>
       </div>
       ${panelOf(cur)}
     </div>
@@ -362,12 +401,23 @@ function renderGroup() {
       if (t?.length) paintTrends(state.model, t);
     });
   };
-  view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => pick(b.dataset.acc)));
-  view.querySelectorAll(".split .donut circle[data-key]").forEach(c => {
-    if (!keys.includes(c.dataset.key)) return;
-    c.classList.add("pickable");
-    c.addEventListener("click", () => pick(c.dataset.key));
-  });
+  const bindComp = () => {
+    view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => pick(b.dataset.acc)));
+    view.querySelectorAll("[data-comp] .donut circle[data-key]").forEach(c => {
+      if (!keys.includes(c.dataset.key)) return;
+      c.classList.add("pickable");
+      c.addEventListener("click", () => pick(c.dataset.key));
+    });
+  };
+  bindComp();
+  // 끝 손잡이를 옮기면 계좌 구성과 고른 계좌의 평가액·종목을 그날 것으로
+  holds = () => {
+    const vs = views();
+    view.querySelector("[data-comp]").innerHTML = comp(vs);
+    bindComp();
+    refreshPanel(view.querySelector(".accounts > .panel.account"), viewOf(picked[tab], vs));
+  };
+  holdsAt = asOfIdx();
   bindRange();
   drawTrends();
 }
