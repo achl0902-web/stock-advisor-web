@@ -26,8 +26,13 @@ const fail = e => { view.innerHTML = note(e?.message || String(e)); };
 /* ---------- 화면 이동 ---------- */
 const scrolls = new Map(); // 목록에서 상세로 갔다 돌아오면 보던 자리로
 let lastPath = null;
+// 가족 보기(nav.js가 정한다): 자산의 계좌 화면과 연결 설정만
+const FAMILY = !!window.saFamily;
+if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우리 자산"; b.href = "#/assets"; document.title = "우리 자산"; }
+
 function route({ keep = false } = {}) {
-  const path = location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
+  let path = location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
+  if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
   if (lastPath != null) scrolls.set(lastPath, scrollY);
   const y = keep ? scrollY : (lastPath?.startsWith("run/") && scrolls.get(path)) || 0;
   lastPath = path;
@@ -82,7 +87,8 @@ function renderSetup(message) {
     settings.save({ owner, repo, token });
     state.model = null;
     lastPath = null;
-    if (location.hash !== "#/") location.hash = "#/";
+    const start = FAMILY ? "#/assets" : "#/";
+    if (location.hash !== start) location.hash = start;
     boot();
   });
   document.getElementById("forget")?.addEventListener("click", () => {
