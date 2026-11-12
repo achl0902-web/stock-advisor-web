@@ -221,6 +221,20 @@ export function accountView(key) {
 
 // key: 계좌 하나, 계좌 목록(합계), "all". win: {from, to} 날짜(없으면 처음·끝). now({계좌: 지금 평가액})를 주면 끝이 오늘일 때 지금 값을 붙인다.
 // 계좌가 기간 중에 처음 생기면 그날 평가액을 입금으로 본다(합계에 계좌가 더해져도 손익이 되지 않게).
+// 달러 기준 추이: 그날 환율로 평가액·입출금을 달러로 바꾼다. 실현손익·배당은 달러 원가로 다시 잰 값(networth의 *_usd).
+// 환율이 없는 날은 앞 날 환율. 기록에 환율이 없으면(예전 자료) null
+const usdMemo = new WeakMap();
+export function inUsd(worth) {
+  if (!worth?.fx?.some(x => x)) return null;
+  if (usdMemo.has(worth)) return usdMemo.get(worth);
+  let last = worth.fx.find(x => x);
+  const fx = worth.fx.map(x => (last = x || last));
+  const conv = o => Object.fromEntries(Object.entries(o || {}).map(([k, a]) => [k, a.map((x, i) => x == null ? null : x / fx[i])]));
+  const out = { ...worth, v: conv(worth.v), f: conv(worth.f), realized: worth.realized_usd, income: worth.income_usd };
+  usdMemo.set(worth, out);
+  return out;
+}
+
 export function worthSeries(worth, key, win = {}, now = null, today = todayKST()) {
   const empty = { points: [], marks: [], sum: null };
   if (!worth?.t?.length) return empty;

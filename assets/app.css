@@ -356,6 +356,9 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 /* 다시 그릴 때 스크롤 보정은 화면 코드가 직접 한다(브라우저 보정과 겹치지 않게) */
 html { overflow-anchor: none; }
 .range .seg { background: var(--raised); }
+.range-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.range-top > :only-child { grid-column: 1 / -1; }
+.seg-unit button { min-width: 40px; padding: 0 10px; }
 .slider { position: relative; height: 32px; }
 .slider-track { position: absolute; left: 11px; right: 11px; top: 14px; height: 4px; border-radius: 4px; background: var(--raised); }
 .slider-track i { position: absolute; top: 0; bottom: 0; left: var(--a); right: calc(100% - var(--b)); border-radius: 4px; background: var(--accent); }

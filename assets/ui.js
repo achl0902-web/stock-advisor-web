@@ -15,6 +15,13 @@ export function money(v, cur) {
 // 수량: 주식은 정수 주, 코인은 소수점(최대 8자리) + 코인 기호
 const nfQty = new Intl.NumberFormat("ko-KR", { maximumFractionDigits: 8 });
 export const qtyText = (q, unit) => !unit || unit === "주" ? nf(0).format(q) + "주" : `${nfQty.format(q)} ${unit}`;
+export function usdShort(v) {
+  if (v == null || isNaN(v)) return "–";
+  const a = Math.abs(v), s = v < 0 ? "−" : "";
+  if (a >= 1e6) return s + "$" + (a / 1e6).toFixed(2).replace(/\.?0+$/, "") + "M";
+  if (a >= 1e4) return s + "$" + (a / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+  return s + "$" + nf(0).format(Math.round(a));
+}
 export function krwShort(v) {
   if (v == null || isNaN(v)) return "–";
   const a = Math.abs(v);
