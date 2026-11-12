@@ -118,14 +118,15 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
   const finished = ids.filter(id => repo.has(`runs/${id}/final_decision.json`));
   const isRef = id => repo.has(`runs/${id}/reference.json`);
   const doneIds = finished.filter(id => !isRef(id));
-  const [accounts, alerts, alertState, scorecard, notes, openOrders, board] = await Promise.all([
+  const [accounts, alerts, alertState, scorecard, notes, openOrders, board, worth] = await Promise.all([
     repo.json("config/accounts.json"),
     repo.json("config/price_alerts.json"),
     repo.json("reports/alerts_state.json"),
     repo.json("reports/scorecard.json"),
     repo.json("config/scorecard_notes.json"),
     repo.json("config/open_orders.json"),
-    repo.board("board1", pickBoard),
+    repo.board("market--snapshot.json", "board1", pickBoard),
+    repo.board("networth--history.json"),
   ]);
   const first = doneIds.slice(0, count);
   let loaded = 0;
@@ -145,7 +146,7 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
     runs: [], byId: new Map(), accounts: accounts || {}, alerts, alertState,
     // 성적표가 아직 다시 채점되기 전이어도 참고용 판단은 성적에서 뺀다
     scorecard: (scorecard || []).filter(s => !isRef(s.run)), byRun: Object.fromEntries((scorecard || []).map(s => [s.run, s])),
-    notes: notes || {}, names, quotes, boardAt, openOrders: openOrders?.orders || [],
+    notes: notes || {}, names, quotes, boardAt, openOrders: openOrders?.orders || [], worth,
   };
   absorb(m, runs); // 최근 것부터 넣어 같은 종목이면 최근 판단의 이름이 남는다(시세는 시각으로 고른다)
   m.fx = board?.fx || m.runs.find(r => r.brief?.fx)?.brief.fx || null;
@@ -207,6 +208,41 @@ export function accountView(key) {
   const m = state.model, a = m.accounts[key];
   const snap = m.runs.find(r => r.accountKey === key && r.brief?.portfolio?.holdings?.length);
   return { key, a, snap, ...valueAccount(a, m.quotes, m.fx, snap?.brief.portfolio) };
+}
+
+/* ---------- 평가액 추이 (board-data networth--history.json, 시세판을 열 때마다 다시 계산) ---------- */
+// key가 "all"이면 계좌 합계. 계좌가 설정에 생기기 전 날짜는 합계에서 빼고, 그날 시세가 비면 그날을 비운다.
+// now({계좌: 지금 평가액})를 주면 마지막 날 뒤에 지금 값을 붙인다. marks는 계좌가 처음 생긴 날(합계가 그만큼 뛴다).
+// change는 기간 처음에 있던 계좌만으로 잰 변화(중간에 추가한 계좌는 added에 이름만).
+export function worthSeries(worth, key, days, now = null, today = todayKST()) {
+  if (!worth?.t?.length) return { points: [], marks: [], change: null };
+  const keys = key === "all" ? Object.keys(worth.v) : [key];
+  const first = Object.fromEntries(keys.map(k => [k, (worth.v[k] || []).findIndex(v => v != null)]));
+  const from = days ? new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10) : "";
+  const rows = worth.t.map((t, i) => ({ t, by: Object.fromEntries(keys.filter(k => first[k] >= 0 && i >= first[k]).map(k => [k, worth.v[k][i]])) }))
+    .filter(r => r.t >= from);
+  if (now && rows.length) {
+    const by = Object.fromEntries(keys.filter(k => now[k] != null).map(k => [k, now[k]]));
+    if (rows.at(-1).t === today) rows.at(-1).by = { ...rows.at(-1).by, ...by };
+    else rows.push({ t: "지금", by });
+  }
+  // 생긴 계좌 중 하나라도 그날 값이 비면 그날 합계도 비운다
+  const sum = by => { const v = Object.values(by); return v.length && v.every(x => x != null) ? v.reduce((a, b) => a + b, 0) : null; };
+  const points = rows.map(r => ({ t: r.t, v: sum(r.by) }));
+  const marks = keys.filter(k => first[k] > 0).map(k => ({ t: worth.t[first[k]], label: `${worth.labels?.[k] || k} 추가` }))
+    .filter(m => points.some(p => p.t === m.t));
+  const i0 = points.findIndex(p => p.v != null), i1 = points.length - 1 - [...points].reverse().findIndex(p => p.v != null);
+  let change = null;
+  if (i0 >= 0 && i1 > i0) {
+    const base = Object.keys(rows[i0].by);
+    const end = base.map(k => rows[i1].by[k]);
+    if (end.every(v => v != null)) {
+      const v0 = points[i0].v, v1 = end.reduce((a, b) => a + b, 0);
+      const added = keys.filter(k => !base.includes(k) && rows[i1].by[k] != null).map(k => worth.labels?.[k] || k);
+      change = { d: v1 - v0, r: (v1 / v0 - 1) * 100, since: points[i0].t, added };
+    }
+  }
+  return { points, marks, change };
 }
 
 /* ---------- 관심가·일정 (config/price_alerts.json) ---------- */

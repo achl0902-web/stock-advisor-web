@@ -1,12 +1,30 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
-import { ACCOUNT_ORDER, state, accountKeys, accountLabel, accountShort, accountView, levelItems, levelLabel, levelNote, todayKST } from "./store.js";
+import { ACCOUNT_ORDER, state, accountKeys, accountLabel, accountShort, accountView, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
+import { SERIES, CASH, donut, line, bindLines } from "./chart.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
 
 const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/levels", "관심가", "levels"], ["#/assets/etf", "ETF", "etf"]];
 
-/* ---------- 계좌 ---------- */
+/* ---------- 계좌: 위에 기간, 전체 평가 추이, 계좌 구성 도넛, 고른 계좌의 추이·종목 구성 ---------- */
 let picked = null;
+const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["all", "전체"]];
+let period = "all";
+
+// 기간 처음보다 얼마나 바뀌었는지: "+1,234만원 (+4.2%) 10/24보다". 중간에 추가한 계좌는 빼고 잰다.
+function changeLine(c) {
+  if (!c) return "";
+  const note = c.added.length ? `${c.added.join("·")} 추가분 빼고, 입금·출금 포함` : "입금·출금 포함";
+  return `<p class="delta"><b class="fig tone-${tone(c.d)}">${c.d > 0 ? "+" : c.d < 0 ? "−" : ""}${krwShort(Math.abs(c.d))} (${pct(c.r)})</b><span>${esc(c.since === "지금" ? "" : c.since.slice(5).replace("-", "/"))}보다, ${note}</span></p>`;
+}
+
+// key: 계좌 또는 "all". now: {계좌: 지금 평가액} (지금 시세로 계산된 계좌만)
+function trend(key, now, label) {
+  const m = state.model;
+  if (!m.worth?.t?.length) return `<p class="hint">평가액 추이는 시세 탭을 한 번 열면 계산됩니다.</p>`;
+  const { points, marks, change } = worthSeries(m.worth, key, period === "all" ? null : +period, now);
+  return `${changeLine(change)}${line(points, { fmt: krwShort, marks, label: `${label} 평가액 추이` })}`;
+}
 
 function limitBlock(a, v) {
   if (!a.risk_asset_max_pct || v.cashPct == null) return "";
@@ -32,28 +50,35 @@ function goalBlock(a) {
   </div>`;
 }
 
-function accountPanel(v) {
+function accountPanel(v, color) {
   const { a, key } = v, m = state.model;
   const safe = a.safe_assets || {};
-  const rows = v.rows.map(({ h, q, value, pl, weight }) => {
+  // 종목 색은 설정 파일 순서를 따른다(비중이 바뀌어도 같은 종목은 같은 색). 현금은 회색.
+  const slices = v.rows.map((r, i) => ({ key: r.h.symbol, label: m.names[r.h.symbol] || r.h.symbol, value: r.value || 0, color: SERIES[i % SERIES.length] }));
+  if (v.cash > 0) slices.push({ key: "cash", label: "현금", value: v.cash, color: CASH });
+  const rows = v.rows.map(({ h, q, value, pl, weight }, i) => {
     const unit = h.market === "CRYPTO" ? h.symbol : "주";
     return `<li class="hold">
-      <div class="hold-top"><b>${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</b><span class="fig">${value != null ? krwShort(value) : "–"}</span></div>
-      <div class="wbar" role="img" aria-label="비중 ${weight != null ? nf(1).format(weight) : "–"}%"><i style="width:${Math.min(100, weight || 0)}%"></i><span class="fig">${weight != null ? nf(1).format(weight) + "%" : "–"}</span></div>
+      <div class="hold-top"><b><i class="sw" style="background:${slices[i].color}"></i>${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</b><span class="fig">${value != null ? krwShort(value) : "–"}<small>${weight != null ? nf(1).format(weight) + "%" : ""}</small></span></div>
       <div class="hold-sub"><span>${qtyText(h.qty, unit)}${h.avg_price ? `, 평단 ${money(h.avg_price, h.currency)}` : ""}</span><span>${q?.price != null ? `<span class="fig">${money(q.price, h.currency)}</span>${pl != null ? ` <b class="fig tone-${tone(pl)}">${pct(pl)}</b>` : ""}` : "시세 없음"}</span></div>
     </li>`;
   }).join("");
-  const cash = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
+  const cashText = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
+  const cashRow = v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${krwShort(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
   const basis = v.live
     ? `지금 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}.`
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
   const expo = v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<section class="panel account">
-    ${head(a.label || key, `<b class="fig total">${v.total != null ? krwShort(v.total) : "–"}</b>`)}
+    ${head(a.label || key, `<b class="fig total"><i class="sw" style="background:${color}"></i>${v.total != null ? krwShort(v.total) : "–"}</b>`)}
     ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
+    ${trend(key, v.live ? { [key]: v.total } : null, a.label || key)}
     ${goalBlock(a)}${limitBlock(a, v)}
-    <ul class="holds">${rows}</ul>
-    <p class="hint">${cash ? `현금 ${cash}. ` : ""}${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>
+    <div class="split">
+      ${v.total ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
+      <ul class="holds">${rows}${cashRow}</ul>
+    </div>
+    <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>
   </section>`;
 }
 
@@ -62,20 +87,35 @@ export function renderAccounts() {
   if (!keys.length) { view.innerHTML = `${subtabs(TABS, "accounts")}<p class="none">계좌 설정 파일(config/accounts.json)이 없습니다.</p>`; return; }
   const views = keys.map(accountView);
   if (!keys.includes(picked)) picked = keys[0];
+  // 계좌 색은 계좌 순서로 고정한다(고른 계좌가 바뀌어도 색은 그대로)
+  const color = Object.fromEntries(keys.map((k, i) => [k, SERIES[i % SERIES.length]]));
   const all = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
+  const span = state.model.worth?.t?.length ? (Date.parse(todayKST()) - Date.parse(state.model.worth.t[0])) / 86400000 : 0;
   view.innerHTML = `
     ${subtabs(TABS, "accounts")}
+    <div class="seg" role="group" aria-label="기간">${PERIODS.map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${period === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${t}</button>`).join("")}</div>
     <div class="accounts">
       <div class="col">
-        ${all != null ? `<header class="worth"><span>전체 평가</span><b class="fig">${krwShort(all)}</b></header>
-        <div class="share" role="img" aria-label="계좌별 비중">${views.map(v => `<i class="${v.key === picked ? "on" : ""}" style="flex:${Math.max(v.total, all * 0.01)}"></i>`).join("")}</div>` : ""}
-        <div class="picker" role="group" aria-label="계좌">${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === picked}">
-          <span>${esc(accountShort(v.key))}</span><b class="fig">${v.total != null ? krwShort(v.total) : "–"}</b>${all ? `<small class="fig">${nf(0).format(v.total / all * 100)}%</small>` : ""}
-        </button>`).join("")}</div>
+        <section class="panel">
+          <header class="worth"><span>전체 평가</span><b class="fig">${all != null ? krwShort(all) : "–"}</b></header>
+          ${trend("all", Object.fromEntries(views.filter(v => v.live).map(v => [v.key, v.total])), "전체")}
+        </section>
+        <section class="panel">
+          ${head("계좌 구성", `<span class="hint">눌러서 계좌 보기</span>`)}
+          <div class="split">
+            ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: krwShort(all), sub: `${views.length}개 계좌`, picked }) : ""}
+            <div class="picker" role="group" aria-label="계좌">${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === picked}">
+              <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${v.total != null ? krwShort(v.total) : "–"}</b><small class="fig">${all ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
+            </button>`).join("")}</div>
+          </div>
+        </section>
       </div>
-      ${accountPanel(views.find(v => v.key === picked))}
-    </div>`;
+      ${accountPanel(views.find(v => v.key === picked), color[picked])}
+    </div>
+    ${state.model.worth?.t?.length ? `<p class="hint foot">평가액 추이는 계좌 설정의 변경 기록(${esc(state.model.worth.t[0].slice(5).replace("-", "/"))}부터)과 그날 종가로 다시 계산합니다. 입금·출금과 새로 추가한 계좌도 평가액에 그대로 들어갑니다.</p>` : ""}`;
   view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => { picked = b.dataset.acc; renderAccounts(); }));
+  view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderAccounts(); }));
+  bindLines(view);
 }
 
 /* ---------- 관심가: 종목마다 가격선을 높은 값부터 세우고 그 사이에 현재가를 끼운다 ---------- */
