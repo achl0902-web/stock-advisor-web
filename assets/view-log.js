@@ -1,5 +1,5 @@
 // 기록: 판단 목록, 추천 성적표, 판단 상세.
-import { DEC, ACCOUNT_ORDER, state, accountLabel, accountShort, scoreSummary, verdict } from "./store.js";
+import { DEC, ACCOUNT_ORDER, state, shownRuns, moreLeft, loadMoreRuns, ensureRun, accountLabel, accountShort, scoreSummary, verdict, MORE_PAGE } from "./store.js";
 import { markdown } from "./md.js";
 import { view, esc, money, nf, pct, pp, tone, dateLabel, krwShort, qtyText, seal, mark, confidence, ticket, runRow, head, subtabs, chips, bindChips, note, icon } from "./ui.js";
 
@@ -10,7 +10,7 @@ const PREMORTEM = { skip: "생략", pass: "통과", revise: "계획 수정", blo
 let acct = "all";
 export function renderRuns() {
   const m = state.model;
-  const done = m.runs.filter(r => r.done);
+  const done = shownRuns();
   const keys = ACCOUNT_ORDER.filter(k => done.some(r => r.accountKey === k));
   if (acct !== "all" && !keys.includes(acct)) acct = "all";
   const list = done.filter(r => acct === "all" || r.accountKey === acct);
@@ -20,14 +20,26 @@ export function renderRuns() {
     if (!days.has(k)) days.set(k, []);
     days.get(k).push(r);
   }
-  const collectOnly = m.runs.length - done.length;
+  const left = moreLeft();
   view.innerHTML = `
     ${subtabs(TABS, "runs")}
-    ${chips([["all", `전체 ${done.length}`], ...keys.map(k => [k, `${accountShort(k)} ${done.filter(r => r.accountKey === k).length}`])], acct, "계좌")}
+    ${chips([["all", "전체"], ...keys.map(k => [k, accountShort(k)])], acct, "계좌")}
+    <p class="hint foot">${left ? `최근 판단 ${done.length}건을 불러왔습니다. 전체 ${m.doneIds.length}건.` : `판단 ${m.doneIds.length}건을 모두 불러왔습니다.`}</p>
     ${[...days].map(([d, rs]) => `<section class="day"><h2>${esc(d)}</h2><div class="panel rows">${rs.map(r => runRow(r, { time: true })).join("")}</div></section>`).join("")
-      || `<p class="none">이 계좌의 판단이 없습니다.</p>`}
-    ${collectOnly ? `<p class="hint foot">데이터만 모으고 판단까지 가지 않은 실행 ${collectOnly}건은 뺐습니다.</p>` : ""}`;
+      || `<p class="none">불러온 판단 중에는 이 계좌의 판단이 없습니다.</p>`}
+    ${left ? `<button class="btn btn-ghost" type="button" id="more-runs">이전 판단 ${Math.min(left, MORE_PAGE)}건 더 불러오기</button>` : ""}
+    ${m.collectOnly ? `<p class="hint foot">데이터만 모으고 판단까지 가지 않은 실행 ${m.collectOnly}건은 뺐습니다.</p>` : ""}`;
   bindChips(v => { acct = v; renderRuns(); });
+  const more = document.getElementById("more-runs");
+  more?.addEventListener("click", async () => {
+    more.disabled = true;
+    more.textContent = "불러오는 중…";
+    const y = scrollY;
+    try { await loadMoreRuns(); } catch (e) { more.disabled = false; more.textContent = e?.message || "다시 시도"; return; }
+    if (!more.isConnected) return; // 불러오는 사이 다른 화면으로 넘어감
+    renderRuns();
+    scrollTo(0, y);
+  });
 }
 
 /* ---------- 성적표 ---------- */
@@ -97,7 +109,13 @@ function gradePanel(r) {
 }
 
 export async function renderRun(id) {
-  const r = state.model.runs.find(x => x.id === id);
+  let r = state.model.byId.get(id);
+  if (!r) {
+    view.innerHTML = `<a class="back" href="#/log">${icon("back")}기록</a><p class="none">판단을 불러오는 중…</p>`;
+    const want = location.hash;
+    r = await ensureRun(id);
+    if (location.hash !== want) return; // 불러오는 사이 다른 화면으로 넘어감
+  }
   if (!r) { view.innerHTML = `<p class="none">이 판단을 찾지 못했습니다. <a href="#/log">기록으로 돌아가기</a></p>`; return; }
   const d = DEC[r.dec?.decision];
   const plan = r.plan || {};

@@ -1,5 +1,5 @@
 // 오늘: 최신 판단과 주문, 걸어 둔 주문, 가까운 관심가, 다가오는 날짜, QLD 전략 상태, 성적 요약.
-import { DEC, state, accountLabel, accountShort, levelItems, levelLabel, levelNote, nearest, upcoming, scoreSummary, todayKST } from "./store.js";
+import { DEC, state, shownRuns, accountLabel, accountShort, levelItems, levelLabel, levelNote, nearest, upcoming, scoreSummary, todayKST } from "./store.js";
 import { view, esc, money, nf, pp, tone, dateLabel, dday, distText, seal, confidence, ticket, runRow, head, moreLink, icon } from "./ui.js";
 
 const QLD_PAGE = "https://achl0902-web.github.io/back-testing/qld/";
@@ -104,14 +104,14 @@ function scorePanel() {
 }
 
 export function renderHome() {
-  const done = state.model.runs.filter(r => r.done);
+  const done = shownRuns();
   const items = levelItems();
   view.innerHTML = `<div class="home">
     <div class="col">
       ${hero(done[0])}
       ${ordersPanel()}
       <section class="panel">
-        ${head("최근 판단", moreLink("#/log", `전체 ${done.length}건`))}
+        ${head("최근 판단", moreLink("#/log", `전체 ${state.model.doneIds.length}건`))}
         <div class="rows">${done.slice(1, 6).map(r => runRow(r)).join("") || `<p class="none">이전 판단이 없습니다.</p>`}</div>
       </section>
     </div>
