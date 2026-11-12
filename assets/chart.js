@@ -15,7 +15,7 @@ export function donut(slices, { size = 160, center = "", sub = "", picked = null
     const len = Math.max(0, x.value) / total * c;
     const seg = `<circle r="${r}" cx="60" cy="60" fill="none" stroke="${x.color}" stroke-width="${w}"
       stroke-dasharray="${Math.max(0, len - gap).toFixed(2)} ${(c - Math.max(0, len - gap)).toFixed(2)}" stroke-dashoffset="${(-at).toFixed(2)}"
-      ${picked && x.key === picked ? 'class="on"' : ""}><title>${esc(x.label)}</title></circle>`;
+      ${x.key != null ? `data-key="${esc(String(x.key))}"` : ""} ${picked && x.key === picked ? 'class="on"' : ""}><title>${esc(x.label)}</title></circle>`;
     at += len;
     return seg;
   }).join("") : `<circle r="${r}" cx="60" cy="60" fill="none" stroke="var(--raised)" stroke-width="${w}"/>`;
