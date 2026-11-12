@@ -114,8 +114,10 @@ function absorb(m, runs) {
 export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE) {
   const head = await repo.index();
   const ids = [...new Set(repo.list("runs/").map(p => p.split("/")[1]))].filter(id => id && !/test/i.test(id)).sort().reverse();
-  // 판단까지 간 실행만 목록에 둔다(데이터 수집만 한 실행은 뺀다). 파일 목록만 보면 알 수 있어 읽지 않는다.
-  const doneIds = ids.filter(id => repo.has(`runs/${id}/final_decision.json`));
+  // 판단까지 간 실행만 목록에 둔다(데이터 수집만 한 실행, 궁금해서 돌린 참고용 판단은 뺀다). 파일 목록만 보면 알 수 있어 읽지 않는다.
+  const finished = ids.filter(id => repo.has(`runs/${id}/final_decision.json`));
+  const isRef = id => repo.has(`runs/${id}/reference.json`);
+  const doneIds = finished.filter(id => !isRef(id));
   const [accounts, alerts, alertState, scorecard, notes, openOrders, board] = await Promise.all([
     repo.json("config/accounts.json"),
     repo.json("config/price_alerts.json"),
@@ -139,9 +141,10 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
   const boardAt = board?.asof ? new Date(board.asof) : null;
   for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
   const m = {
-    head, doneIds, shown: first.length, collectOnly: ids.length - doneIds.length,
+    head, doneIds, shown: first.length, collectOnly: ids.length - finished.length, refCount: finished.length - doneIds.length,
     runs: [], byId: new Map(), accounts: accounts || {}, alerts, alertState,
-    scorecard: scorecard || [], byRun: Object.fromEntries((scorecard || []).map(s => [s.run, s])),
+    // 성적표가 아직 다시 채점되기 전이어도 참고용 판단은 성적에서 뺀다
+    scorecard: (scorecard || []).filter(s => !isRef(s.run)), byRun: Object.fromEntries((scorecard || []).map(s => [s.run, s])),
     notes: notes || {}, names, quotes, boardAt, openOrders: openOrders?.orders || [],
   };
   absorb(m, runs); // 최근 것부터 넣어 같은 종목이면 최근 판단의 이름이 남는다(시세는 시각으로 고른다)
@@ -163,12 +166,12 @@ export async function loadMoreRuns(n = MORE_PAGE) {
   m.shown += next.length;
 }
 
-// 성적표 등에서 아직 읽지 않은 판단 하나를 열 때. 판단까지 가지 않은 실행이면 null.
+// 성적표 등에서 아직 읽지 않은 판단 하나를 열 때(참고용 판단도 주소로는 열린다). 판단까지 가지 않은 실행이면 null.
 export async function ensureRun(id) {
-  const m = state.model;
+  const m = state.model, repo = state.repo;
   if (m.byId.has(id)) return m.byId.get(id);
-  if (!m.doneIds.includes(id)) return null;
-  absorb(m, [await loadRun(state.repo, id)]);
+  if (!repo.has(`runs/${id}/final_decision.json`)) return null;
+  absorb(m, [{ ...await loadRun(repo, id), reference: repo.has(`runs/${id}/reference.json`) }]);
   return m.byId.get(id);
 }
 

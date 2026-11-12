@@ -28,7 +28,10 @@ export function renderRuns() {
     ${[...days].map(([d, rs]) => `<section class="day"><h2>${esc(d)}</h2><div class="panel rows">${rs.map(r => runRow(r, { time: true })).join("")}</div></section>`).join("")
       || `<p class="none">불러온 판단 중에는 이 계좌의 판단이 없습니다.</p>`}
     ${left ? `<button class="btn btn-ghost" type="button" id="more-runs">이전 판단 ${Math.min(left, MORE_PAGE)}건 더 불러오기</button>` : ""}
-    ${m.collectOnly ? `<p class="hint foot">데이터만 모으고 판단까지 가지 않은 실행 ${m.collectOnly}건은 뺐습니다.</p>` : ""}`;
+    ${m.collectOnly || m.refCount ? `<p class="hint foot">${[
+      m.refCount ? `궁금해서 돌린 참고용 판단 ${m.refCount}건` : "",
+      m.collectOnly ? `데이터만 모으고 판단까지 가지 않은 실행 ${m.collectOnly}건` : "",
+    ].filter(Boolean).join("과 ")}은 뺐습니다.</p>` : ""}`;
   bindChips(v => { acct = v; renderRuns(); });
   const more = document.getElementById("more-runs");
   more?.addEventListener("click", async () => {
@@ -141,7 +144,7 @@ export async function renderRun(id) {
               <span class="hero-meta"><b class="tone-${d?.tone || "flat"}">${esc(d?.label || r.dec?.decision || "")}</b><span class="fig">${money(r.price, r.currency)}</span>${confidence(r.dec?.confidence)}</span>
             </span>
           </div>
-          <p class="hint">${esc(r.symbol)}${r.exchange ? `, ${esc(r.exchange)}` : ""}</p>
+          <p class="hint">${esc(r.symbol)}${r.exchange ? `, ${esc(r.exchange)}` : ""}${r.reference ? ". 궁금해서 돌린 참고용 판단이라 판단 일지·성적표에서 빠져 있습니다." : ""}</p>
         </section>
         ${gradePanel(r)}
         <section class="panel">
