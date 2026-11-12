@@ -21,58 +21,106 @@ function presetWindow(t) {
 }
 
 // 기간 고르기: 버튼(1주~전체)과 시작·끝 손잡이 두 개짜리 슬라이더. 화면 위에 하나, 아래 모든 성과 칸에 같이 쓴다
+// 손잡이 두 개 슬라이더. 제자리 막대와 위에 뜨는 막대가 같은 모양을 쓴다
+function sliderBox(t, w) {
+  const at = d => t.indexOf(d) / (t.length - 1) * 100;
+  return `<div class="slider" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
+      <span class="slider-track" aria-hidden="true"><i></i></span>
+      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일">
+      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일">
+    </div>`;
+}
+
 function rangeBox() {
   const t = state.model.worth?.t;
   if (!t?.length) return "";
   const w = presetWindow(t);
   const span = (Date.parse(t.at(-1)) - Date.parse(t[0])) / 86400000;
-  return `<i class="range-sentinel" aria-hidden="true"></i><section class="range" aria-label="기간">
+  // 제자리 막대는 크기가 절대 바뀌지 않는다(바뀌면 아래 내용이 통째로 밀린다).
+  // 그 자리를 지나 내려가면 같은 슬라이더를 단 작은 막대를 화면 위에 따로 띄운다.
+  return `<section class="range" aria-label="기간">
     <div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>
-    <div class="slider" style="--a:${t.indexOf(w.from) / (t.length - 1) * 100}%;--b:${t.indexOf(w.to) / (t.length - 1) * 100}%">
-      <span class="slider-track" aria-hidden="true"><i></i></span>
-      <input type="range" id="r-from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일">
-      <input type="range" id="r-to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일">
-    </div>
-    <p class="range-dates"><b class="fig" id="r-from-l">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" id="r-to-l">${esc(dayText(w.to))}</b><span>까지</span></p>
-  </section>`;
+    ${sliderBox(t, w)}
+    <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b><span>까지</span></p>
+  </section>
+  <div class="range-float" aria-label="기간" role="group">
+    <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></p>
+    ${sliderBox(t, w)}
+  </div>`;
 }
 
-let stuckObs = null;
+const TOP = 64; // 위 막대 높이(56) + 여유
+let floatObs = null;
+let dragY = null; // 손잡이를 끄는 동안 지켜야 할 스크롤 위치
+addEventListener("scroll", () => { if (dragY != null && Math.abs(scrollY - dragY) > 1) scrollTo(0, dragY); }, { passive: true });
+for (const e of ["pointerup", "pointercancel", "touchend", "touchcancel"]) addEventListener(e, () => { dragY = null; });
 function bindRange() {
   const t = state.model.worth?.t;
   if (!t?.length) return;
-  // 스크롤해도 위에 붙어 따라온다. 붙어 있는 동안은 버튼을 접어 화면을 덜 가린다
-  stuckObs?.disconnect();
-  const sentinel = view.querySelector(".range-sentinel"), bar = view.querySelector(".range");
-  stuckObs = new IntersectionObserver(([e]) => bar.classList.toggle("stuck", !e.isIntersecting), { rootMargin: "-64px 0px 0px 0px" });
-  stuckObs.observe(sentinel);
-  const from = document.getElementById("r-from"), to = document.getElementById("r-to"), box = view.querySelector(".slider");
+  const bar = view.querySelector(".range"), float = view.querySelector(".range-float");
+  floatObs?.disconnect();
+  floatObs = new IntersectionObserver(([e]) => {
+    const past = !e.isIntersecting && e.boundingClientRect.top < TOP;
+    if (past) fit();
+    float.classList.toggle("on", past);
+    float.inert = !past;
+  }, { rootMargin: `-${TOP}px 0px 0px 0px` });
+  floatObs.observe(bar);
+  // 뜨는 막대는 제자리 막대와 같은 가로 자리·폭에 놓는다(넓은 화면의 옆 탭 막대만큼 비켜서)
+  const fit = () => { const r = bar.getBoundingClientRect(); float.style.setProperty("--fl", `${r.left}px`); float.style.setProperty("--fw", `${r.width}px`); };
+  onresize = fit;
+  float.inert = true;
+
+  const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
+  // 두 막대를 같은 값으로 맞춘다
+  const show = (a, b) => {
+    ins("from").forEach(x => { x.value = a; });
+    ins("to").forEach(x => { x.value = b; });
+    view.querySelectorAll(".slider").forEach(box => {
+      box.style.setProperty("--a", `${a / (t.length - 1) * 100}%`);
+      box.style.setProperty("--b", `${b / (t.length - 1) * 100}%`);
+    });
+    view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = dayText(t[a]); });
+    view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = dayText(t[b]); });
+  };
+  // 손잡이를 잡는 순간 아이폰 사파리는 그 입력칸을 "보이게" 하려고 화면을 끌어올린다.
+  // 끄는 동안에는 페이지가 움직일 이유가 없으니, 잡은 자리에서 벗어나면 바로 되돌린다.
+  const hold = () => { dragY = scrollY; };
+  view.querySelectorAll(".slider input").forEach(x => {
+    x.addEventListener("pointerdown", hold); x.addEventListener("touchstart", hold, { passive: true });
+  });
   let raf = 0;
-  const apply = moved => {
-    let a = +from.value, b = +to.value;
-    if (a > b - 1) { if (moved === from) a = from.value = Math.max(0, b - 1); else b = to.value = Math.min(t.length - 1, a + 1); }
+  view.querySelectorAll(".slider input").forEach(input => input.addEventListener("input", () => {
+    const box = input.closest(".slider");
+    let a = +box.querySelector('[data-end="from"]').value, b = +box.querySelector('[data-end="to"]').value;
+    if (a > b - 1) { if (input.dataset.end === "from") a = Math.max(0, b - 1); else b = Math.min(t.length - 1, a + 1); }
     Object.assign(win, { preset: null, from: t[a], to: t[b] });
-    box.style.setProperty("--a", `${a / (t.length - 1) * 100}%`);
-    box.style.setProperty("--b", `${b / (t.length - 1) * 100}%`);
-    document.getElementById("r-from-l").textContent = dayText(t[a]);
-    document.getElementById("r-to-l").textContent = dayText(t[b]);
+    show(a, b);
     view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", "false"));
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(drawTrends); // 끄는 동안 한 화면에 한 번만 다시 그린다
-  };
-  from.addEventListener("input", () => apply(from));
-  to.addEventListener("input", () => apply(to));
+  }));
   view.querySelectorAll("[data-period]").forEach(btn => btn.addEventListener("click", () => {
     win.preset = btn.dataset.period;
     const w = presetWindow(t);
-    from.value = t.indexOf(w.from); to.value = t.indexOf(w.to);
-    box.style.setProperty("--a", `${from.value / (t.length - 1) * 100}%`);
-    box.style.setProperty("--b", `${to.value / (t.length - 1) * 100}%`);
-    document.getElementById("r-from-l").textContent = dayText(w.from);
-    document.getElementById("r-to-l").textContent = dayText(w.to);
+    show(t.indexOf(w.from), t.indexOf(w.to));
     view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
     drawTrends();
   }));
+}
+
+// 다시 그리면 성과 칸 높이가 기간마다 달라진다(표시, 매도 목록 등). 보던 내용이 화면에서
+// 움직이지 않도록, 화면 맨 위에 걸친 칸 하나를 기준으로 잡아 두었다가 그만큼 스크롤을 되돌린다.
+// 아이폰 사파리는 이 보정을 브라우저가 해 주지 않는다.
+function keepPlace(redraw) {
+  const marks = [...view.querySelectorAll("[data-trend], [data-trend] + *, .range")];
+  const below = marks.map(el => [el, el.getBoundingClientRect().top]).filter(([, y]) => y >= TOP);
+  const pick = below.length ? below.reduce((p, q) => q[1] < p[1] ? q : p) : null;
+  redraw();
+  if (!pick || pick[1] > innerHeight) return;
+  const d = pick[0].getBoundingClientRect().top - pick[1];
+  if (Math.abs(d) >= 1) scrollBy(0, d);
+  if (dragY != null) dragY = scrollY; // 높이 보정으로 옮긴 자리가 새 기준
 }
 
 // 성과 칸 자리: 그리기는 drawTrends가 한다. key: 계좌·계좌 목록, now: {계좌: 지금 평가액}
@@ -105,6 +153,9 @@ const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + nf(0).format(Math.abs(Math
 function drawTrends() {
   const m = state.model, t = m.worth?.t;
   if (!t?.length) return;
+  keepPlace(() => paintTrends(m, t));
+}
+function paintTrends(m, t) {
   const w = presetWindow(t);
   view.querySelectorAll("[data-trend]").forEach(el => {
     const { key, now, label } = trends[+el.dataset.trend] || {};
