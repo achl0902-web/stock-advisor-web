@@ -26,7 +26,7 @@ function rangeBox() {
   if (!t?.length) return "";
   const w = presetWindow(t);
   const span = (Date.parse(t.at(-1)) - Date.parse(t[0])) / 86400000;
-  return `<section class="range" aria-label="기간">
+  return `<i class="range-sentinel" aria-hidden="true"></i><section class="range" aria-label="기간">
     <div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>
     <div class="slider" style="--a:${t.indexOf(w.from) / (t.length - 1) * 100}%;--b:${t.indexOf(w.to) / (t.length - 1) * 100}%">
       <span class="slider-track" aria-hidden="true"><i></i></span>
@@ -37,9 +37,15 @@ function rangeBox() {
   </section>`;
 }
 
+let stuckObs = null;
 function bindRange() {
   const t = state.model.worth?.t;
   if (!t?.length) return;
+  // 스크롤해도 위에 붙어 따라온다. 붙어 있는 동안은 버튼을 접어 화면을 덜 가린다
+  stuckObs?.disconnect();
+  const sentinel = view.querySelector(".range-sentinel"), bar = view.querySelector(".range");
+  stuckObs = new IntersectionObserver(([e]) => bar.classList.toggle("stuck", !e.isIntersecting), { rootMargin: "-64px 0px 0px 0px" });
+  stuckObs.observe(sentinel);
   const from = document.getElementById("r-from"), to = document.getElementById("r-to"), box = view.querySelector(".slider");
   let raf = 0;
   const apply = moved => {
@@ -76,6 +82,24 @@ function trend(key, now, label) {
   return `<div class="trend" data-trend="${trends.length - 1}"></div>`;
 }
 
+// 투자손익을 나눠 보기: 판 것(실현) + 배당·이자 + 아직 들고 있는 것의 평가손익 변화. 기간 중 판 종목 목록
+function realizedBlock(sum) {
+  const names = state.model.names;
+  const row = (label, v, note = "") => `<li><span>${label}${note ? `<small>${note}</small>` : ""}</span><b class="fig tone-${tone(v)}">${won(v)}</b></li>`;
+  const sells = sum.sells.slice(0, 8);
+  return `<div class="breakdown">
+    <h3>투자손익 나눠 보기</h3>
+    <ul class="bd">
+      ${row("실현손익", sum.realized, "판 종목, 이동평균 원가")}
+      ${row("배당·이자", sum.income, "세금 뺀 금액")}
+      ${row("평가손익 변화", sum.unrealized, "아직 들고 있는 종목")}
+    </ul>
+    ${sells.length ? `<details class="sells"><summary>기간 중 매도 ${sum.sells.length}건</summary><ul>${sells.map(x =>
+      `<li><span>${esc(dayText(x.d))} ${esc(names[x.sym] || x.sym)}</span><b class="fig tone-${tone(x.v)}">${won(x.v)}</b></li>`).join("")}</ul>${sum.sells.length > 8 ? `<p class="hint">최근 8건만 보여 줍니다.</p>` : ""}</details>` : `<p class="hint">이 기간에 판 종목은 없습니다.</p>`}
+    ${sum.partial ? `<p class="hint">거래내역이 없는 계좌는 실현손익을 계산하지 않아 평가손익 변화에 들어 있습니다.</p>` : ""}
+  </div>`;
+}
+
 const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + nf(0).format(Math.abs(Math.round(v))) + "원";
 
 function drawTrends() {
@@ -101,7 +125,8 @@ function drawTrends() {
         <div><dt>기말 평가금액 <small>${esc(dayText(sum.to))}</small></dt><dd class="fig">${nf(0).format(sum.end)}원</dd></div>
         <div><dt>순 입출금</dt><dd class="fig">${won(sum.flows)}</dd></div>
         <div><dt>투자원금</dt><dd class="fig">${nf(0).format(sum.principal)}원</dd></div>
-      </dl>`;
+      </dl>
+      ${sum.realized != null ? realizedBlock(sum) : ""}`;
   });
   bindLines(view);
 }
