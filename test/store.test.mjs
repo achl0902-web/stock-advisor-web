@@ -102,3 +102,13 @@ test("worthSeries: 입출금을 뺀 투자손익·수익률, 기간 중 생긴 �
   assert.equal(worthSeries(rz, ["a", "c"], {}, null, "2026-11-04").sum.partial, true);
   assert.equal(worthSeries(worth, "a", {}, null, "2026-11-04").sum.realized, undefined); // 거래내역이 없으면 칸을 안 그린다
 });
+
+test("inUsd: 그날 환율로 평가액·입출금을 달러로", async () => {
+  const { inUsd, worthSeries } = await import("../assets/store.js");
+  const w = { t: ["2026-01-01", "2026-01-02", "2026-01-03"], v: { a: [1000, 2200, 2400] }, f: { a: [0, 1000, 0] }, fx: [1000, null, 1200] };
+  const u = inUsd(w);
+  assert.deepEqual(u.v.a, [1, 2.2, 2]); // 비는 날은 앞 날 환율
+  const { sum } = worthSeries(u, "a", { from: "2026-01-02" });
+  assert.equal(sum.base, 1); assert.equal(sum.flows, 1); assert.ok(Math.abs(sum.pnl - 0) < 1e-9); // 원화로는 +400원이지만 달러로는 0
+  assert.equal(inUsd({ t: ["x"], v: {}, fx: [null] }), null);
+});

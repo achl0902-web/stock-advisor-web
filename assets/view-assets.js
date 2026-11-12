@@ -1,8 +1,8 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
-import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
+import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { inline, markdown } from "./md.js";
-import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
+import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
 
 const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코인", "long"], ["#/assets/levels", "관심가", "levels"], ["#/assets/etf", "ETF", "etf"]];
 
@@ -11,6 +11,8 @@ const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
 // 고른 기간: preset을 누르면 끝은 마지막 날, 슬라이더를 움직이면 preset이 풀린다. 날짜는 worth.t의 값
 const win = { preset: "365", from: null, to: null };
+let unit = "KRW"; // 계좌 탭의 성과를 원화로 볼지 달러로 볼지
+let unitOn = false; // 지금 화면이 원/달러 고르기를 쓰는지(계좌 탭만)
 let trends = []; // 지금 화면에 그린 성과 칸들 [{key, now, label}]: 기간을 바꾸면 이것만 다시 그린다
 
 function presetWindow(t) {
@@ -31,15 +33,17 @@ function sliderBox(t, w) {
     </div>`;
 }
 
-function rangeBox() {
+function rangeBox({ units = false } = {}) {
+  unitOn = units && !!inUsd(state.model.worth);
   const t = state.model.worth?.t;
   if (!t?.length) return "";
   const w = presetWindow(t);
   const span = (Date.parse(t.at(-1)) - Date.parse(t[0])) / 86400000;
   // 제자리 막대는 크기가 절대 바뀌지 않는다(바뀌면 아래 내용이 통째로 밀린다).
   // 그 자리를 지나 내려가면 같은 슬라이더를 단 작은 막대를 화면 위에 따로 띄운다.
+  const unitSeg = unitOn ? `<div class="seg seg-unit" role="group" aria-label="통화 기준">${[["KRW", "원"], ["USD", "$"]].map(([v, l]) => `<button type="button" data-unit="${v}" aria-pressed="${unit === v}" aria-label="${v === "KRW" ? "원화 기준" : "달러 기준"}">${l}</button>`).join("")}</div>` : "";
   return `<section class="range" aria-label="기간">
-    <div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>
+    <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
     ${sliderBox(t, w)}
     <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b><span>까지</span></p>
   </section>
@@ -100,6 +104,11 @@ function bindRange() {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(drawTrends); // 끄는 동안 한 화면에 한 번만 다시 그린다
   }));
+  view.querySelectorAll("[data-unit]").forEach(btn => btn.addEventListener("click", () => {
+    unit = btn.dataset.unit;
+    view.querySelectorAll("[data-unit]").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
+    drawTrends();
+  }));
   view.querySelectorAll("[data-period]").forEach(btn => btn.addEventListener("click", () => {
     win.preset = btn.dataset.period;
     const w = presetWindow(t);
@@ -148,7 +157,10 @@ function realizedBlock(sum) {
   </div>`;
 }
 
-const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + nf(0).format(Math.abs(Math.round(v))) + "원";
+// 금액: 고른 통화로. signed는 부호를 붙인다
+const usd = () => unitOn && unit === "USD";
+const full = v => usd() ? "$" + nf(0).format(Math.round(v)) : nf(0).format(Math.round(v)) + "원";
+const won = v => (v > 0 ? "+" : v < 0 ? "−" : "") + full(Math.abs(v));
 
 function drawTrends() {
   const m = state.model, t = m.worth?.t;
@@ -160,7 +172,9 @@ function paintTrends(m, t) {
   view.querySelectorAll("[data-trend]").forEach(el => {
     const { key, now, label } = trends[+el.dataset.trend] || {};
     if (!key) return;
-    const { points, marks, sum } = worthSeries(m.worth, key, w, now);
+    const inU = usd(), fxNow = m.fx;
+    const nowU = inU ? (fxNow && now ? Object.fromEntries(Object.entries(now).map(([k, x]) => [k, x / fxNow])) : null) : now;
+    const { points, marks, sum } = worthSeries(inU ? inUsd(m.worth) : m.worth, key, w, nowU);
     if (!sum) { el.innerHTML = `<p class="hint">이 기간에는 평가 기록이 없습니다.</p>`; return; }
     const legend = marks.length ? `<ul class="ln-legend">${marks.map(x => `<li><i></i>${esc(dayText(x.t))} ${esc(x.label)}</li>`).join("")}</ul>` : "";
     el.innerHTML = `
@@ -168,14 +182,15 @@ function paintTrends(m, t) {
         <div><span>투자손익</span><b class="fig tone-${tone(sum.pnl)}">${won(sum.pnl)}</b></div>
         <div><span>투자수익률</span><b class="fig tone-${tone(sum.pnl)}">${sum.rate != null ? pct(sum.rate, 2) : "–"}</b></div>
       </div>
-      ${line(points, { fmt: krwShort, marks, label: `${label} 평가액과 투자원금 추이` })}
+      ${line(points, { fmt: inU ? usdShort : krwShort, marks, label: `${label} 평가액과 투자원금 추이${inU ? "(달러 기준)" : ""}` })}
       <p class="ln-key"><span><i class="k-v"></i>평가액</span><span><i class="k-p"></i>투자원금(기초 + 입출금)</span></p>
       ${legend}
+      ${inU && el.dataset.trend === "0" ? `<p class="hint">달러 기준: 날마다 그날 환율로 평가액과 입출금을 달러로 바꿔 잽니다. 원화 현금·국내 종목은 환율이 오르면 달러로는 손실이고, 미국 종목의 환차익은 빠집니다.</p>` : ""}
       <dl class="facts perf-facts">
-        <div><dt>기초 평가금액 <small>${esc(dayText(sum.from))}</small></dt><dd class="fig">${nf(0).format(sum.base)}원</dd></div>
-        <div><dt>기말 평가금액 <small>${esc(dayText(sum.to))}</small></dt><dd class="fig">${nf(0).format(sum.end)}원</dd></div>
+        <div><dt>기초 평가금액 <small>${esc(dayText(sum.from))}</small></dt><dd class="fig">${full(sum.base)}</dd></div>
+        <div><dt>기말 평가금액 <small>${esc(dayText(sum.to))}</small></dt><dd class="fig">${full(sum.end)}</dd></div>
         <div><dt>순 입출금</dt><dd class="fig">${won(sum.flows)}</dd></div>
-        <div><dt>투자원금</dt><dd class="fig">${nf(0).format(sum.principal)}원</dd></div>
+        <div><dt>투자원금</dt><dd class="fig">${full(sum.principal)}</dd></div>
       </dl>
       ${sum.realized != null ? realizedBlock(sum) : ""}`;
   });
@@ -283,7 +298,7 @@ function renderGroup() {
   trends = [];
   view.innerHTML = `
     ${subtabs(TABS, tab)}
-    ${rangeBox()}
+    ${rangeBox({ units: true })}
     <div class="accounts">
       <div class="col">
         <section class="panel">
