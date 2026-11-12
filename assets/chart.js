@@ -25,6 +25,12 @@ export function donut(slices, { size = 160, center = "", sub = "", picked = null
   </figure>`;
 }
 
+// "2026-11-02" → 올해면 "11/02", 다른 해면 "25.11.02"
+export function dayText(d) {
+  if (d === "지금") return d;
+  return d.slice(0, 4) === new Date().toISOString().slice(0, 4) ? d.slice(5).replace("-", "/") : d.slice(2).replaceAll("-", ".");
+}
+
 /* ---------- 추이 선: points [{t: "2026-11-02", v}], 비는 날은 끊는다 ---------- */
 const charts = new Map();
 let seq = 0;
@@ -51,7 +57,6 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
   // 점은 SVG가 가로로 늘어나도 동그랗게 남도록 HTML로 얹는다
   const pos = i => `left:${(x(i) / W * 100).toFixed(2)}%;top:${(y(points[i].v) / H * 100).toFixed(2)}%`;
   charts.set(id, { points, fmt, marks, W, H, xs: points.map((_, i) => x(i)), ys: points.map(p => p.v == null ? null : y(p.v)) });
-  const dl = d => d.slice(5).replace("-", "/");
   return `<div class="line" data-line="${id}">
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}">
       ${grid.map(g => `<line class="ln-grid" x1="${pad.l}" x2="${W - pad.r}" y1="${g}" y2="${g}"/>`).join("")}
@@ -61,7 +66,7 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
     ${marks.map(m => { const i = points.findIndex(p => p.t === m.t); return i < 0 || points[i].v == null ? "" : `<i class="ln-pt ln-mark" style="${pos(i)}" title="${esc(m.label)}"></i>`; }).join("")}
     <i class="ln-pt ln-end" style="${pos(last)}"></i>
     <i class="ln-pt ln-dot" hidden></i>
-    <span class="ln-x"><span>${dl(points[0].t)}</span><span>${points[last].t === "지금" ? "지금" : dl(points[last].t)}</span></span>
+    <span class="ln-x"><span>${dayText(points[0].t)}</span><span>${dayText(points[last].t)}</span></span>
     <span class="ln-y"><span class="fig">${esc(fmt(hi - span * 0.12))}</span><span class="fig">${esc(fmt(lo + span * 0.12))}</span></span>
     <output class="ln-tip" hidden></output>
   </div>`;
@@ -90,7 +95,7 @@ export function bindLines(root) {
       const b = document.createElement("b"); b.className = "fig"; b.textContent = c.fmt(p.v);
       const s = document.createElement("small");
       const m = c.marks.find(x => x.t === p.t);
-      s.textContent = (p.t === "지금" ? "지금" : p.t.slice(5).replace("-", "/")) + (m ? ` ${m.label}` : "");
+      s.textContent = dayText(p.t) + (m ? ` ${m.label}` : "");
       tip.append(b, s);
       const left = X / c.W * 100;
       tip.style.left = `${Math.min(82, Math.max(18, left))}%`;
