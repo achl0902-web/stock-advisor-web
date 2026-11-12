@@ -347,15 +347,14 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .ln-key i.k-p { border-top: 2px dashed var(--sub); }
 
 /* 기간: 버튼과 손잡이 두 개 슬라이더(QLD 백테스터처럼). 위쪽 하나가 아래 모든 성과 칸에 같이 쓰인다 */
-.range { position: sticky; top: calc(56px + env(safe-area-inset-top, 0px)); z-index: 15; display: grid; gap: 10px; padding: 12px 14px 10px; border-radius: var(--r-panel); background: var(--panel); transition: padding .15s; }
-.range-sentinel { display: block; height: 0; }
-/* 위에 붙은 동안: 빠른 고르기 버튼은 접고 날짜를 슬라이더 옆에 한 줄로 */
-.range.stuck { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 6px 14px; box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .9); background: color-mix(in srgb, var(--panel) 92%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
-.range.stuck .seg { display: none; }
-.range.stuck .range-dates { grid-row: 1; grid-column: 1; gap: 4px; }
-.range.stuck .range-dates span { display: none; }
-.range.stuck .range-dates b + span + b::before { content: "~ "; color: var(--dim); font-weight: 400; }
-.range.stuck .slider { grid-row: 1; grid-column: 2; }
+.range { display: grid; gap: 10px; padding: 12px 14px 10px; border-radius: var(--r-panel); background: var(--panel); }
+/* 제자리 막대를 지나 내려가면 화면 위에 뜨는 작은 막대. 문서 흐름 밖(fixed)이라 나타나고 사라져도 아래 내용이 밀리지 않는다 */
+.range-float { position: fixed; z-index: 15; top: calc(56px + env(safe-area-inset-top, 0px)); left: var(--fl, var(--gut)); width: var(--fw, calc(100% - 2 * var(--gut))); transform: translateY(-8px); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 6px 14px; border-radius: var(--r-panel); background: color-mix(in srgb, var(--panel) 92%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .9); opacity: 0; visibility: hidden; transition: opacity .15s, transform .15s, visibility 0s .15s; }
+.range-float.on { opacity: 1; visibility: visible; transform: none; transition: opacity .15s, transform .15s; }
+.range-float .range-dates { gap: 4px; }
+@media (prefers-reduced-motion: reduce) { .range-float, .range-float.on { transition: none; } }
+/* 다시 그릴 때 스크롤 보정은 화면 코드가 직접 한다(브라우저 보정과 겹치지 않게) */
+html { overflow-anchor: none; }
 .range .seg { background: var(--raised); }
 .slider { position: relative; height: 32px; }
 .slider-track { position: absolute; left: 11px; right: 11px; top: 14px; height: 4px; border-radius: 4px; background: var(--raised); }
