@@ -80,7 +80,8 @@ test("worthSeries: 합계는 생기기 전 계좌를 빼고, 시세가 빈 날�
   assert.deepEqual(all.marks, [{ t: "2026-11-02", label: "크립토 추가" }]);
   // 변화는 처음에 있던 계좌(a)만으로: 10 → 40, 크립토는 추가분으로 따로
   assert.deepEqual(all.change, { d: 30, r: 300, since: "2026-11-01", added: ["크립토"] });
-  assert.deepEqual(worthSeries(worth, "c", null, null, "2026-11-03").points.map(p => p.v), [null, 5, 6]);
+  assert.deepEqual(worthSeries(worth, "c", null, null, "2026-11-03").points.map(p => p.v), [5, 6]); // 생기기 전 날은 잘라 냄
+  assert.deepEqual(worthSeries(worth, ["a", "c"], null, null, "2026-11-03").points.map(p => p.v), [10, null, 36]);
   assert.deepEqual(worthSeries(worth, "a", null, { a: 7 }, "2026-11-03").points.map(p => p.v), [10, null, 7]); // 오늘 값은 지금 값으로
   assert.deepEqual(worthSeries(worth, "a", 1, null, "2026-11-03").points.map(p => p.t), ["2026-11-02", "2026-11-03"]);
   assert.equal(worthSeries(null, "all").change, null);

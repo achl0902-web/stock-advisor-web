@@ -1,13 +1,13 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
-import { ACCOUNT_ORDER, state, accountKeys, accountLabel, accountShort, accountView, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
+import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines } from "./chart.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
 
-const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/levels", "관심가", "levels"], ["#/assets/etf", "ETF", "etf"]];
+const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코인", "long"], ["#/assets/levels", "관심가", "levels"], ["#/assets/etf", "ETF", "etf"]];
 
 /* ---------- 계좌: 위에 기간, 전체 평가 추이, 계좌 구성 도넛, 고른 계좌의 추이·종목 구성 ---------- */
-let picked = null;
+const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["all", "전체"]];
 let period = "all";
 
@@ -75,46 +75,67 @@ function accountPanel(v, color) {
     ${trend(key, v.live ? { [key]: v.total } : null, a.label || key)}
     ${goalBlock(a)}${limitBlock(a, v)}
     <div class="split">
-      ${v.total ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
+      ${v.total && slices.length > 1 ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
       <ul class="holds">${rows}${cashRow}</ul>
     </div>
     <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>
   </section>`;
 }
 
-export function renderAccounts() {
-  const keys = accountKeys(state.model.accounts);
-  if (!keys.length) { view.innerHTML = `${subtabs(TABS, "accounts")}<p class="none">계좌 설정 파일(config/accounts.json)이 없습니다.</p>`; return; }
-  const views = keys.map(accountView);
-  if (!keys.includes(picked)) picked = keys[0];
-  // 계좌 색은 계좌 순서로 고정한다(고른 계좌가 바뀌어도 색은 그대로)
-  const color = Object.fromEntries(keys.map((k, i) => [k, SERIES[i % SERIES.length]]));
-  const all = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
-  const span = state.model.worth?.t?.length ? (Date.parse(todayKST()) - Date.parse(state.model.worth.t[0])) / 86400000 : 0;
+// 계좌 탭은 바로 쓸 수 있는 돈(주 계좌·바이오)의 합계와 구성. 연금·코인 탭은 합계 없이 계좌마다 따로.
+export const renderAccounts = () => renderGroup();
+
+const periodSeg = () => {
+  const w = state.model.worth;
+  const span = w?.t?.length ? (Date.parse(todayKST()) - Date.parse(w.t[0])) / 86400000 : 0;
+  return `<div class="seg" role="group" aria-label="기간">${PERIODS.map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${period === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${t}</button>`).join("")}</div>`;
+};
+const colorOf = k => SERIES[accountKeys(state.model.accounts).indexOf(k) % SERIES.length]; // 같은 계좌는 어느 탭에서나 같은 색
+
+export function renderLongTerm() {
+  const keys = accountGroup(state.model.accounts, true);
   view.innerHTML = `
-    ${subtabs(TABS, "accounts")}
-    <div class="seg" role="group" aria-label="기간">${PERIODS.map(([v, t]) => `<button type="button" data-period="${v}" aria-pressed="${period === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${t}</button>`).join("")}</div>
+    ${subtabs(TABS, "long")}
+    ${keys.length ? `${periodSeg()}<div class="cards">${keys.map(k => accountPanel(accountView(k), colorOf(k))).join("")}</div>
+    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 유동 자산 합계에는 넣지 않습니다.</p>` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
+  view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderLongTerm(); }));
+  bindLines(view);
+}
+
+function renderGroup() {
+  const tab = "accounts";
+  const keys = accountGroup(state.model.accounts, false);
+  if (!keys.length) { view.innerHTML = `${subtabs(TABS, tab)}<p class="none">이 묶음의 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`; return; }
+  const views = keys.map(accountView);
+  if (!keys.includes(picked[tab])) picked[tab] = keys[0];
+  const cur = picked[tab];
+  const color = Object.fromEntries(keys.map(k => [k, colorOf(k)]));
+  const title = "유동 자산";
+  const all = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
+  view.innerHTML = `
+    ${subtabs(TABS, tab)}
+    ${periodSeg()}
     <div class="accounts">
       <div class="col">
         <section class="panel">
-          <header class="worth"><span>전체 평가</span><b class="fig">${all != null ? krwShort(all) : "–"}</b></header>
-          ${trend("all", Object.fromEntries(views.filter(v => v.live).map(v => [v.key, v.total])), "전체")}
+          <header class="worth"><span>${title}</span><b class="fig">${all != null ? krwShort(all) : "–"}</b></header>
+          ${trend(keys, Object.fromEntries(views.filter(v => v.live).map(v => [v.key, v.total])), title)}
         </section>
         <section class="panel">
           ${head("계좌 구성", `<span class="hint">눌러서 계좌 보기</span>`)}
           <div class="split">
-            ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: krwShort(all), sub: `${views.length}개 계좌`, picked }) : ""}
-            <div class="picker" role="group" aria-label="계좌">${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === picked}">
+            ${all ? donut(views.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: krwShort(all), sub: `${views.length}개 계좌`, picked: cur }) : ""}
+            <div class="picker" role="group" aria-label="계좌">${views.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === cur}">
               <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${v.total != null ? krwShort(v.total) : "–"}</b><small class="fig">${all ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
             </button>`).join("")}</div>
           </div>
         </section>
       </div>
-      ${accountPanel(views.find(v => v.key === picked), color[picked])}
+      ${accountPanel(views.find(v => v.key === cur), color[cur])}
     </div>
-    ${state.model.worth?.t?.length ? `<p class="hint foot">평가액 추이는 계좌 설정의 변경 기록(${esc(state.model.worth.t[0].slice(5).replace("-", "/"))}부터)과 그날 종가로 다시 계산합니다. 입금·출금과 새로 추가한 계좌도 평가액에 그대로 들어갑니다.</p>` : ""}`;
-  view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => { picked = b.dataset.acc; renderAccounts(); }));
-  view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderAccounts(); }));
+    ${state.model.worth?.t?.length ? `<p class="hint foot">평가액 추이는 계좌 설정의 변경 기록(${esc(state.model.worth.t[0].slice(5).replace("-", "/"))}부터)과 그날 종가로 다시 계산합니다. 입금·출금과 새로 추가한 계좌도 평가액에 그대로 들어갑니다. 퇴직연금·크립토는 연금·코인 탭에 따로 있습니다.</p>` : ""}`;
+  view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => { picked[tab] = b.dataset.acc; renderGroup(); }));
+  view.querySelectorAll("[data-period]").forEach(b => b.addEventListener("click", () => { period = b.dataset.period; renderGroup(); }));
   bindLines(view);
 }
 

@@ -185,7 +185,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 
 /* ---------- 탭 안 갈래·거르기 칩 ---------- */
 .seg { justify-self: start; display: inline-flex; gap: 2px; padding: 4px; border-radius: 14px; background: var(--panel); max-width: 100%; }
-.seg a, .seg button { display: grid; place-items: center; min-height: 38px; padding: 0 18px; border: 0; border-radius: 10px; background: none; color: var(--sub); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.seg a, .seg button { display: grid; place-items: center; min-height: 38px; padding: 0 clamp(12px, 3.6vw, 18px); border: 0; border-radius: 10px; background: none; color: var(--sub); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
 .seg [aria-current="page"], .seg [aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .seg button:disabled { color: var(--dim); opacity: .45; cursor: default; }
 .seg-fill { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; justify-self: stretch; }
@@ -345,6 +345,8 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 /* ---------- 자산: 관심가 ---------- */
 .group { display: grid; gap: 8px; }
 .cards { columns: 340px; column-gap: 10px; }
+.cards > .account { break-inside: avoid; margin-bottom: 10px; }
+@media (min-width: 900px) { .cards:has(> .account) { columns: 2; column-gap: 14px; } }
 .level { display: grid; gap: 12px; break-inside: avoid; margin-bottom: 10px; }
 .level .panel-h { margin: 0; }
 .level .lede { margin-top: -8px; font-size: 13px; }

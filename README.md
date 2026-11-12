@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | 오늘 (`#/`) | 최신 판단(도장·요지·주문 티켓), 걸어 둔 주문, 종목별 가장 가까운 관심가, 다가오는 날짜, QLD 챔피언 전략 상태, 최근 판단, 성적 요약 | `runs/*/`, `config/open_orders.json`, `config/price_alerts.json`, `reports/alerts_state.json`, back-testing `qld/data/status.json`(공개) |
 | 기록 (`#/log`) | **판단**: 계좌별 판단 목록(채점 결과 함께), 상세(주문 티켓·채점·최종 점검·리포트 본문). **성적**: 기간별 방향 적중·초과수익·분할 효과, 판단별 벤치마크 대비 | `runs/<id>/final_decision.json`, `plan.json`, `checks.json`, `report.md`, `reports/scorecard.json`, `config/scorecard_notes.json` |
-| 자산 (`#/assets`) | **계좌**: 기간(1주·1개월·3개월·전체)별 전체·계좌별 평가액 추이, 계좌 구성·종목 구성 도넛, 보유·평가손익, 퇴직연금 위험자산 70% 한도, 코인 목표 수량. **관심가**: 종목별 가격선 사다리(현재가 위치·거리)와 날짜 기준. **ETF**: 426020 리밸런싱 일지와 사후 평가 | `config/accounts.json`, `config/price_alerts.json`, `board-data` 브랜치 시세·평가액 추이(`networth--history.json`), 계좌별 최근 `brief.json`, `etfwatch/reports/*.md` |
+| 자산 (`#/assets`) | **계좌**: 바로 쓸 수 있는 돈(주 계좌·바이오)의 유동 자산 합계와 기간(1주·1개월·3개월·전체)별 추이, 계좌 구성·종목 구성 도넛, 보유·평가손익. **연금·코인** (`#/assets/long`): 퇴직연금·크립토를 합계 없이 계좌마다 따로(추이·종목 구성, 위험자산 70% 한도, 코인 목표 수량). **관심가**: 종목별 가격선 사다리(현재가 위치·거리)와 날짜 기준. **ETF**: 426020 리밸런싱 일지와 사후 평가 | `config/accounts.json`, `config/price_alerts.json`, `board-data` 브랜치 시세·평가액 추이(`networth--history.json`), 계좌별 최근 `brief.json`, `etfwatch/reports/*.md` |
 | 시세 (`sise.html`) | Funnest Charts 트레이딩 차트(지표·그리기 도구, 평단·관심가 선), 지수·선물·금리·환율·비트코인 띠, 관심종목, 내 가격선 사다리, 나스닥100·코스피 히트맵. 열 때(마지막 수집이 3분 넘었으면)와 새로 불러오기를 누를 때 `board` 워크플로를 실행해 새로 수집하고 끝나면 다시 그림(1~2분) | stock-advisor `board-data` 브랜치 |
 
 판단 기록은 최근 20건만 먼저 읽고, 기록 탭 아래 "더 불러오기"를 누를 때마다 50건씩 더 읽습니다. 성적표에서 아직 읽지 않은 판단을 누르면 그 판단 하나만 읽어 옵니다. 궁금해서 돌린 참고용 판단(`runs/<id>/reference.json`이 있는 판단)은 판단 일지·성적에서 빠집니다.

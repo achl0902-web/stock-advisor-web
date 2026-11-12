@@ -178,6 +178,11 @@ export async function ensureRun(id) {
 
 /* ---------- 계좌 ---------- */
 export const accountLabel = k => state.model?.accounts?.[k]?.label || ACCOUNT_FALLBACK[k] || k;
+// 자산 탭의 묶음: 바로 쓸 수 있는 돈(계좌)과 묶여 있는 장기 자금(연금·코인). 퇴직연금은 55세 전에 못 빼고,
+// 코인은 목표 수량까지 모으는 장기 자산이라 유동 자산 합계에 넣지 않는다.
+export const LONG_TERM = ["pension", "crypto"];
+export const accountGroup = (accounts, long) => accountKeys(accounts).filter(k => LONG_TERM.includes(k) === long);
+
 // 칩·좁은 칸에 쓰는 짧은 이름
 export const accountShort = k => ACCOUNT_SHORT[k] || accountLabel(k);
 export function accountKeys(accounts) {
@@ -216,7 +221,8 @@ export function accountView(key) {
 // change는 기간 처음에 있던 계좌만으로 잰 변화(중간에 추가한 계좌는 added에 이름만).
 export function worthSeries(worth, key, days, now = null, today = todayKST()) {
   if (!worth?.t?.length) return { points: [], marks: [], change: null };
-  const keys = key === "all" ? Object.keys(worth.v) : [key];
+  // key: 계좌 하나, 계좌 목록(그 계좌들 합계), "all"(전부 합계)
+  const keys = Array.isArray(key) ? key.filter(k => worth.v[k]) : key === "all" ? Object.keys(worth.v) : [key];
   const first = Object.fromEntries(keys.map(k => [k, (worth.v[k] || []).findIndex(v => v != null)]));
   const from = days ? new Date(Date.parse(today) - days * 86400000).toISOString().slice(0, 10) : "";
   const rows = worth.t.map((t, i) => ({ t, by: Object.fromEntries(keys.filter(k => first[k] >= 0 && i >= first[k]).map(k => [k, worth.v[k][i]])) }))
@@ -228,8 +234,12 @@ export function worthSeries(worth, key, days, now = null, today = todayKST()) {
   }
   // 생긴 계좌 중 하나라도 그날 값이 비면 그날 합계도 비운다
   const sum = by => { const v = Object.values(by); return v.length && v.every(x => x != null) ? v.reduce((a, b) => a + b, 0) : null; };
-  const points = rows.map(r => ({ t: r.t, v: sum(r.by) }));
-  const marks = keys.filter(k => first[k] > 0).map(k => ({ t: worth.t[first[k]], label: `${worth.labels?.[k] || k} 추가` }))
+  // 그 계좌(들)가 생기기 전 날짜는 앞에서 잘라 낸다
+  const lead = rows.findIndex(r => Object.keys(r.by).length);
+  if (lead > 0) rows.splice(0, lead);
+  const points = lead < 0 ? [] : rows.map(r => ({ t: r.t, v: sum(r.by) }));
+  // 여러 계좌 합계에서만: 계좌 하나짜리 선은 생긴 날부터 시작하므로 표시할 것이 없다
+  const marks = keys.filter(k => keys.length > 1 && first[k] > 0).map(k => ({ t: worth.t[first[k]], label: `${worth.labels?.[k] || k} 추가` }))
     .filter(m => points.some(p => p.t === m.t));
   const i0 = points.findIndex(p => p.v != null), i1 = points.length - 1 - [...points].reverse().findIndex(p => p.v != null);
   let change = null;

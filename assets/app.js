@@ -4,7 +4,7 @@ import { state, loadModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
 import { renderHome } from "./view-home.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
-import { renderAccounts, renderLevels, renderEtf } from "./view-assets.js";
+import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-assets.js";
 
 const DEFAULT_REPO = "achl0902-web/stock-advisor";
 const syncEl = document.getElementById("sync");
@@ -14,7 +14,7 @@ const ROUTES = {
   "": ["home", renderHome],
   "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
-  "assets": ["assets", renderAccounts], "assets/levels": ["assets", renderLevels], "assets/etf": ["assets", renderEtf],
+  "assets": ["assets", renderAccounts], "assets/long": ["assets", renderLongTerm], "assets/levels": ["assets", renderLevels], "assets/etf": ["assets", renderEtf],
   "accounts": ["assets", renderAccounts], "etf": ["assets", renderEtf],
 };
 
