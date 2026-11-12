@@ -216,7 +216,7 @@ export function accountView(key) {
 }
 
 // 지난 어느 날(worth.t의 i번째)의 계좌 구성: networth의 pos(바뀐 날마다 보유 수량·현금)와 px(그날 종가)로 다시 잰다.
-// 평단은 그날 값을 알 수 없어 뺀다. 그날 아직 없던 계좌는 빈 구성. 기록에 보유가 없으면(예전 자료) null
+// 평단·수익률도 그날 값(pos의 넷째 칸). 그날 아직 없던 계좌는 빈 구성. 기록에 보유가 없으면(예전 자료) null
 export function viewOn(key, i) {
   const m = state.model, w = m.worth, rows = w?.pos?.[key];
   if (!rows) return null;
@@ -236,7 +236,8 @@ export function viewOn(key, i) {
     const conf = (cfg.holdings || []).find(h => String(h.symbol) === s) || {};
     const currency = w.cur?.[s] || conf.currency || (/^\d/.test(s) ? "KRW" : "USD");
     const px = price(s), k = currency === "USD" ? fx : 1;
-    return { h: { ...conf, symbol: s, qty, currency, avg_price: null }, q: px != null ? { price: px } : null, value: px != null && k ? qty * px * k : null, pl: null };
+    const avg = p[4]?.[s] ?? null; // 그날 평단(거래내역 이동평균, 설정 이력의 평단, 받기만 한 코인은 받은 날 종가)
+    return { h: { ...conf, symbol: s, qty, currency, avg_price: avg }, q: px != null ? { price: px } : null, value: px != null && k ? qty * px * k : null, pl: px != null && avg ? (px / avg - 1) * 100 : null };
   });
   const cash = p ? p[2] + (p[3] ? p[3] * (fx || 0) : 0) : 0;
   const total = !p ? null : out.every(r => r.value != null) ? cash + out.reduce((t, r) => t + r.value, 0) : (w.v?.[key]?.[i] ?? null);

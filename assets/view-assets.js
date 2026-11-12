@@ -258,7 +258,7 @@ function holdBlock(v) {
   const cashText = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
   const cashRow = v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${amt(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
   const basis = v.on
-    ? `${dayText(v.on)} 종가로 잰 그날 보유입니다(끝 손잡이 날짜). 그날 평단은 알 수 없어 뺐습니다.`
+    ? `${dayText(v.on)} 종가로 잰 그날 보유입니다(끝 손잡이 날짜). 평단과 수익률도 그날까지의 거래로 계산한 값입니다.`
     : v.live
     ? `지금 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}.`
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
