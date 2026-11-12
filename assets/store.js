@@ -215,6 +215,35 @@ export function accountView(key) {
   return { key, a, snap, ...valueAccount(a, m.quotes, m.fx, snap?.brief.portfolio) };
 }
 
+// 지난 어느 날(worth.t의 i번째)의 계좌 구성: networth의 pos(바뀐 날마다 보유 수량·현금)와 px(그날 종가)로 다시 잰다.
+// 평단은 그날 값을 알 수 없어 뺀다. 그날 아직 없던 계좌는 빈 구성. 기록에 보유가 없으면(예전 자료) null
+export function viewOn(key, i) {
+  const m = state.model, w = m.worth, rows = w?.pos?.[key];
+  if (!rows) return null;
+  const cfg = m.accounts[key] || { label: w.labels?.[key] || key, holdings: [] };
+  let p = null;
+  for (const r of rows) { if (r[0] <= i) p = r; else break; }
+  let fx = null;
+  for (let j = i; j >= 0 && fx == null; j--) fx = w.fx?.[j] || null;
+  const price = s => {
+    const e = w.px?.[s];
+    if (!e) return null;
+    for (let j = i - e[0]; j >= 0 && j < e[1].length; j--) if (e[1][j] != null) return e[1][j]; // 그날 종가가 없으면 앞 날
+    return null;
+  };
+  const order = s => { const k = (cfg.holdings || []).findIndex(h => String(h.symbol) === s); return k < 0 ? 1e9 : k; };
+  const out = Object.entries(p?.[1] || {}).sort((x, y) => order(x[0]) - order(y[0])).map(([s, qty]) => {
+    const conf = (cfg.holdings || []).find(h => String(h.symbol) === s) || {};
+    const currency = w.cur?.[s] || conf.currency || (/^\d/.test(s) ? "KRW" : "USD");
+    const px = price(s), k = currency === "USD" ? fx : 1;
+    return { h: { ...conf, symbol: s, qty, currency, avg_price: null }, q: px != null ? { price: px } : null, value: px != null && k ? qty * px * k : null, pl: null };
+  });
+  const cash = p ? p[2] + (p[3] ? p[3] * (fx || 0) : 0) : 0;
+  const total = !p ? null : out.every(r => r.value != null) ? cash + out.reduce((t, r) => t + r.value, 0) : (w.v?.[key]?.[i] ?? null);
+  out.forEach(r => { r.weight = total && r.value != null ? r.value / total * 100 : null; });
+  return { key, a: { ...cfg, cash_krw: p?.[2] || 0, cash_usd: p?.[3] || 0 }, rows: out, cash, cashPct: total ? cash / total * 100 : null, total, live: false, snap: null, on: w.t[i], fx };
+}
+
 /* ---------- 평가액 추이 (board-data networth--history.json, 시세판을 열 때마다 다시 계산) ----------
    worth.v[계좌][i] = 그날 평가액, worth.f[계좌][i] = 그날 순입출금(입금 +, 출금·증여 −).
    투자손익 = 기말 − 기초 − 그 사이 순입출금, 투자원금 = 기초 + 순입출금, 투자수익률 = 투자손익 ÷ 투자원금(증권사 투자성과와 같은 식). */
