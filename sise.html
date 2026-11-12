@@ -17,36 +17,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/tokens.css">
 <style>
 /* Layout: terminal grid. Tape across the top; chart owns the left, watchlist + my price ladder on the right; heatmap spans below. Phones stack chart → tabs. */
+/* 색·글꼴·아래 탭은 assets/tokens.css(판단 일지와 공용). 여기서는 차트 라이브러리 변수만 그 토큰에 잇는다. */
 :root {
-  /* 60 바탕 · 30 패널 · 10 형광 포인트. 판단 일지와 같은 톤. 기본 블랙 라임, data-palette="espresso"면 에스프레소 민트. 라이트 모드 없음. */
-  color-scheme: dark;
-  --bg: #000000;
-  --panel: #121212;
-  --raised: #1c1c1c;
-  --ink: #f2f2f2;
-  --sub: #8a8a8a;
-  --line: #262626;
-  --grid: #191919;
-  --accent: #c8ff2e;
-  --accent-ink: #000000;
-  --accent-wash: color-mix(in srgb, #c8ff2e 16%, transparent);
-  --up: #F04452;
-  --down: #3182F6;
-  --font-ui: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --font-fig: "Space Grotesk", "IBM Plex Sans KR", system-ui, sans-serif;
   --fnv-text: var(--ink);
   --fnv-text-muted: var(--sub);
   --fnv-grid: var(--grid);
   --fnv-bg: var(--panel);
   --fnv-accent: var(--accent);
   --fnv-font: var(--font-ui);
-}
-:root[data-palette="espresso"] {
-  --bg: #140f0b; --panel: #201913; --raised: #2b221a; --ink: #f4ede5; --sub: #a69584;
-  --line: #3a2e24; --grid: #251d16; --accent: #6cf5cf; --accent-ink: #140f0b;
-  --accent-wash: color-mix(in srgb, #6cf5cf 16%, transparent);
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
@@ -56,7 +37,7 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 .is-up { color: var(--up); } .is-down { color: var(--down); } .is-flat { color: var(--sub); }
 .sub { color: var(--sub); font-size: 12.5px; }
 
-.shell { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 10px; }
+.shell { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) calc(var(--tab-h) + 36px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 10px; }
 @media (min-width: 420px) { .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
 
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
@@ -64,6 +45,8 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .btn { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; white-space: nowrap; }
 .btn:hover { border-color: var(--accent); }
+.top-right a.btn[href="./"] { display: none; } /* 아래 탭이 대신한다 */
+@media (min-width: 1024px) { .shell { padding-bottom: 24px; } }
 .btn:disabled { opacity: .6; cursor: default; }
 .dot.is-busy { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
@@ -184,6 +167,8 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 </head>
 <body>
 <div id="root"></div>
+<nav id="tabbar" class="tabbar" aria-label="화면" data-current="sise"></nav>
+<script src="assets/nav.js"></script>
 <script src="assets/sise.js"></script>
 </body>
 </html>
