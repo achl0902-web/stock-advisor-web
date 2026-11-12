@@ -1,9 +1,12 @@
 // 비공개 stock-advisor 저장소를 GitHub REST API로 읽는다.
 // 토큰은 이 기기 브라우저(localStorage)에만 두고 api.github.com 말고는 어디에도 보내지 않는다.
 // 파일 내용은 blob sha 기준으로 캐시한다. sha가 같으면 내용도 같으므로 다시 받지 않는다.
+// 큰 JSON(brief·final_decision)은 화면에 쓰는 부분만 추려 캐시한다. 통째로 넣으면 localStorage 한도(약 5MB)를 넘겨 캐시가 매번 비워진다.
 
 const API = "https://api.github.com";
-const CACHE_PREFIX = "sa:blob:";
+const CACHE_PREFIX = "sa:b2:";
+// 예전 캐시(원문 통째 저장)는 한 번 지운다
+try { Object.keys(localStorage).filter(k => k.startsWith("sa:blob:")).forEach(k => localStorage.removeItem(k)); } catch { /* 무시 */ }
 const MAX_CACHE_BYTES = 400_000; // 한 파일이 이보다 크면 캐시하지 않는다
 
 export class ApiError extends Error {
@@ -98,23 +101,56 @@ export class Repo {
     return [...this.files.keys()].filter(p => p.startsWith(prefix));
   }
 
+  blob(sha) {
+    if (this.inflight.has(sha)) return this.inflight.get(sha);
+    const p = this.limit(() => this.req(`/repos/${this.owner}/${this.repo}/git/blobs/${sha}`, "application/vnd.github.raw+json"))
+      .finally(() => this.inflight.delete(sha));
+    this.inflight.set(sha, p);
+    return p;
+  }
+
   async text(path) {
     const f = this.files.get(path);
     if (!f) return null;
     const hit = cacheGet(f.sha);
     if (hit !== null) return hit;
-    if (this.inflight.has(f.sha)) return this.inflight.get(f.sha);
-    const p = this.limit(() => this.req(`/repos/${this.owner}/${this.repo}/git/blobs/${f.sha}`, "application/vnd.github.raw+json"))
-      .then(t => { cachePut(f.sha, t); this.inflight.delete(f.sha); return t; },
-            e => { this.inflight.delete(f.sha); throw e; });
-    this.inflight.set(f.sha, p);
-    return p;
+    const t = await this.blob(f.sha);
+    cachePut(f.sha, t);
+    return t;
   }
 
-  async json(path) {
-    const t = await this.text(path);
-    if (t == null) return null;
-    try { return JSON.parse(t); } catch { return null; }
+  // tag·pick을 주면 pick(원본)의 결과만 캐시한다. pick을 고치면 tag도 바꿔야 옛 캐시를 안 쓴다.
+  async json(path, tag, pick) {
+    const f = this.files.get(path);
+    if (!f) return null;
+    return this.jsonBySha(f.sha, tag, pick);
+  }
+
+  async jsonBySha(sha, tag, pick) {
+    const key = tag ? `${sha}~${tag}` : sha;
+    try {
+      const hit = cacheGet(key);
+      if (hit !== null) return JSON.parse(hit);
+      const t = await this.blob(sha);
+      if (!tag) { cachePut(key, t); return JSON.parse(t); }
+      const v = pick(JSON.parse(t));
+      cachePut(key, JSON.stringify(v));
+      return v;
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      return null; // JSON이 깨진 파일
+    }
+  }
+
+  // 시세판이 쓰는 board-data 브랜치의 최신 스냅샷(관심종목 현재가·환율). 브랜치가 없거나 못 읽으면 null.
+  async board(tag, pick) {
+    try {
+      const base = `/repos/${this.owner}/${this.repo}`;
+      const br = await this.req(`${base}/branches/board-data`);
+      const tree = await this.req(`${base}/git/trees/${br.commit.sha}`);
+      const f = tree.tree.find(e => e.path === "market--snapshot.json");
+      return f ? await this.jsonBySha(f.sha, tag, pick) : null;
+    } catch { return null; }
   }
 }
 

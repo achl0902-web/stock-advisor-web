@@ -8,16 +8,18 @@
 
 ## 화면
 
+아래 탭 네 개(휴대폰은 떠 있는 탭, 넓은 화면은 왼쪽 레일)로 움직이고, 판단 일지와 시세판이 같은 탭을 씁니다.
+
 | 탭 | 내용 | 읽는 파일 |
 | --- | --- | --- |
-| 오늘 | 최신 판단(도장·주문표·결론), QLD 챔피언 전략 상태, 최근 판단, 퇴직연금 정리 계획 진행, 성적 요약 | `runs/*/`, `config/price_alerts.json`, `reports/alerts_state.json`, back-testing `qld/data/status.json`(공개) |
-| 판단 | 계좌별 판단 기록, 상세(주문표·최종 점검·리포트 본문) | `runs/<id>/final_decision.json`, `plan.json`, `checks.json`, `report.md` |
-| 성적 | 기간별 방향 적중·초과수익·분할 효과, 판단별 벤치마크 대비 | `reports/scorecard.json`, `config/scorecard_notes.json` |
-| 계좌 | 계좌별 보유·비중·평가손익, 퇴직연금 위험자산 70% 한도 | `config/accounts.json`, 계좌별 최근 `brief.json` |
-| ETF | 426020 리밸런싱 일지와 사후 평가 | `etfwatch/reports/*.md` |
+| 오늘 (`#/`) | 최신 판단(도장·요지·주문 티켓), 걸어 둔 주문, 종목별 가장 가까운 관심가, 다가오는 날짜, QLD 챔피언 전략 상태, 최근 판단, 성적 요약 | `runs/*/`, `config/open_orders.json`, `config/price_alerts.json`, `reports/alerts_state.json`, back-testing `qld/data/status.json`(공개) |
+| 기록 (`#/log`) | **판단**: 계좌별 판단 목록(채점 결과 함께), 상세(주문 티켓·채점·최종 점검·리포트 본문). **성적**: 기간별 방향 적중·초과수익·분할 효과, 판단별 벤치마크 대비 | `runs/<id>/final_decision.json`, `plan.json`, `checks.json`, `report.md`, `reports/scorecard.json`, `config/scorecard_notes.json` |
+| 자산 (`#/assets`) | **계좌**: 전체 평가, 계좌별 보유·비중·평가손익, 퇴직연금 위험자산 70% 한도, 코인 목표 수량. **관심가**: 종목별 가격선 사다리(현재가 위치·거리)와 날짜 기준. **ETF**: 426020 리밸런싱 일지와 사후 평가 | `config/accounts.json`, `config/price_alerts.json`, `board-data` 브랜치 시세, 계좌별 최근 `brief.json`, `etfwatch/reports/*.md` |
 | 시세 (`sise.html`) | Funnest Charts 트레이딩 차트(지표·그리기 도구, 평단·관심가 선), 지수·선물·금리·환율·비트코인 띠, 관심종목, 내 가격선 사다리, 나스닥100·코스피 히트맵. 열 때(마지막 수집이 3분 넘었으면)와 새로 불러오기를 누를 때 `board` 워크플로를 실행해 새로 수집하고 끝나면 다시 그림(1~2분) | stock-advisor `board-data` 브랜치 |
 
-색은 국내 시장 관례대로 상승·매수 빨강, 하락·매도 파랑이며 항상 부호·글자와 함께 씁니다. 바탕은 60-30-10(바탕·패널·형광 포인트) 다크 테마 하나이고, 위쪽 동그라미로 **블랙 라임**(기본)과 **에스프레소 민트**를 고릅니다. 선택은 `assets/theme.js`가 이 기기에 저장하고 판단 일지·시세·QLD 백테스터가 함께 씁니다.
+계좌 평가와 관심가까지의 거리는 종목별로 가장 최근 시세(판단 시점·가격 알림 점검·시세판 수집 중 늦은 것)로 계산합니다. 시세가 오래됐으면 시세 탭을 한 번 열어 새로 수집하면 됩니다.
+
+색은 국내 시장 관례대로 상승·매수 빨강, 하락·매도 파랑이며 항상 부호·글자와 함께 씁니다. 바탕은 60-30-10(바탕·패널·형광 포인트) 다크 테마 하나이고, 위쪽 동그라미로 **블랙 라임**(기본)과 **에스프레소 민트**를 고릅니다. 선택은 `assets/theme.js`가 이 기기에 저장하고 판단 일지·시세·QLD 백테스터가 함께 씁니다. 색·글꼴 값은 `assets/tokens.css` 한 곳에 있습니다.
 
 ## 처음 설정
 
@@ -32,9 +34,14 @@
 ## 파일
 
 - `index.html`: 뼈대와 CSP
-- `assets/data.js`: GitHub REST 읽기, blob 캐시
-- `assets/app.js`: 화면
-- `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
-- `assets/app.css`: 스타일(다크 테마 두 가지)
+- `assets/tokens.css`: 판단 일지·시세판 공용 색·글꼴 토큰과 아래 탭 모양
+- `assets/nav.js`: 공용 아래 탭(오늘·기록·자산·시세)
 - `assets/theme.js`: 테마 고르기(블랙 라임·에스프레소 민트)
-- `sise.html`, `assets/sise.js`: 시세판. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다
+- `assets/data.js`: GitHub REST 읽기, blob 캐시(큰 JSON은 화면에 쓰는 부분만 추려 저장)
+- `assets/store.js`: 화면이 쓰는 데이터 모델(판단·계좌 평가·관심가·성적 계산). `node --test test/store.test.mjs`로 확인
+- `assets/ui.js`: 공통 조각(숫자·날짜 표기, 도장, 판단 표시, 주문 티켓, 판단 한 줄)
+- `assets/app.js`: 연결·불러오기·화면 이동
+- `assets/view-home.js`, `view-log.js`, `view-assets.js`: 탭별 화면
+- `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
+- `assets/app.css`: 판단 일지 스타일
+- `sise.html`, `assets/sise.js`: 시세판. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다(탭과 색은 `sise.html`이 공용 파일로 잇습니다)

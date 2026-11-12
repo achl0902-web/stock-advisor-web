@@ -1,0 +1,83 @@
+/* 판단 일지·시세판 공용 바탕: 색·글꼴 토큰과 화면 이동 탭.
+   60 바탕 · 30 패널 · 10 형광 포인트. 기본 블랙 라임, data-palette="espresso"면 에스프레소 민트(assets/theme.js). 라이트 모드 없음.
+   색은 국내 시장 관례: 상승·매수 빨강, 하락·매도 파랑. 부호·글자와 늘 함께 쓴다. */
+
+:root {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #121212;
+  --raised: #1c1c1c;
+  --line: #262626;
+  --grid: #191919;
+  --ink: #f2f2f2;
+  --sub: #a8a8a8;   /* 보조 글자: 패널 위 대비 7:1 */
+  --dim: #8c8c8c;   /* 가장 옅은 글자: 패널 위 대비 5:1, 이보다 옅게 쓰지 않는다 */
+  --up: #f04452;      /* 막대·도장·선 */
+  --down: #3182f6;
+  --up-ink: #ff6b78;  /* 글자용: 패널 위 대비 6:1 이상 */
+  --down-ink: #5c9dff;
+  --flat: #9a9a9a;
+  --warn: #ffb020;
+  --accent: #c8ff2e;
+  --accent-ink: #000000;
+  --accent-wash: color-mix(in srgb, var(--accent) 16%, transparent);
+  --up-wash: color-mix(in srgb, var(--up) 16%, transparent);
+  --down-wash: color-mix(in srgb, var(--down) 18%, transparent);
+  --warn-wash: color-mix(in srgb, var(--warn) 14%, transparent);
+  --font-ui: "IBM Plex Sans KR", "Noto Sans KR", "Noto Sans CJK KR", system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-fig: "Space Grotesk", "IBM Plex Sans KR", "Noto Sans CJK KR", system-ui, sans-serif;
+  --font-seal: "Nanum Myeongjo", "Noto Serif KR", "Noto Serif CJK KR", "AppleMyungjo", "Batang", serif;
+  --tab-h: 62px;
+  --rail: 84px;
+}
+:root[data-palette="espresso"] {
+  --bg: #140f0b;
+  --panel: #201913;
+  --raised: #2b221a;
+  --line: #3a2e24;
+  --grid: #251d16;
+  --ink: #f4ede5;
+  --sub: #bcab9a;
+  --dim: #a08f7f;
+  --flat: #a69584;
+  --accent: #6cf5cf;
+  --accent-ink: #140f0b;
+}
+
+/* ---------- 화면 이동 탭: 휴대폰은 떠 있는 알약, 넓은 화면은 왼쪽 레일 ---------- */
+.tabbar {
+  position: fixed; z-index: 30;
+  left: 50%; translate: -50% 0;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  width: min(420px, calc(100vw - 24px));
+  height: var(--tab-h);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 5px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: inset 0 0 0 1px var(--line), 0 12px 32px -8px rgba(0, 0, 0, .7);
+  font-family: var(--font-ui);
+}
+.tabbar a {
+  display: grid; place-items: center; align-content: center; gap: 2px;
+  border-radius: 17px; text-decoration: none;
+  color: var(--sub); font-size: 12px; font-weight: 600; line-height: 1.2;
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.tabbar a:active { background: var(--raised); }
+.tabbar a[aria-current="page"] { color: var(--accent); background: var(--accent-wash); }
+.tabbar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (hover: hover) { .tabbar a:hover { color: var(--ink); } .tabbar a[aria-current="page"]:hover { color: var(--accent); } }
+
+@media (min-width: 1024px) {
+  body { padding-left: var(--rail); }
+  .tabbar {
+    left: 0; top: 0; bottom: 0; translate: none;
+    width: var(--rail); height: auto;
+    grid-template-columns: none; grid-auto-rows: 64px; align-content: center; gap: 6px; padding: 10px;
+    border-radius: 0; background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: inset -1px 0 0 var(--line);
+  }
+}
+@media (forced-colors: active) { .tabbar a[aria-current="page"] { outline: 2px solid CanvasText; outline-offset: -2px; } }
