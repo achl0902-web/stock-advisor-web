@@ -312,7 +312,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 /* 도넛과 그 옆 목록: 좁으면 위아래, 넓으면 나란히 */
 .split { display: grid; gap: 14px; justify-items: center; margin-bottom: 6px; }
 .split > ul, .split > .picker { width: 100%; }
-@container acct (min-width: 520px) { .split { grid-template-columns: auto minmax(0, 1fr); align-items: center; justify-items: stretch; gap: 20px; } }
+@container acct (min-width: 520px) { .split { grid-template-columns: auto minmax(0, 1fr); align-items: start; justify-items: stretch; gap: 20px; } }
 .account, .accounts .panel { container: acct / inline-size; }
 .donut { position: relative; width: var(--size); height: var(--size); margin: 0; flex: none; }
 .donut svg { width: 100%; height: 100%; display: block; }
