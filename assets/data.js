@@ -86,6 +86,7 @@ export class Repo {
     const [commit] = await this.req(`${base}/commits?per_page=1`);
     const tree = await this.req(`${base}/git/trees/${commit.sha}?recursive=1`);
     this.files.clear();
+    this.boardTree = null;
     for (const e of tree.tree) if (e.type === "blob") this.files.set(e.path, { sha: e.sha, size: e.size });
     this.head = {
       sha: commit.sha,
@@ -142,13 +143,13 @@ export class Repo {
     }
   }
 
-  // 시세판이 쓰는 board-data 브랜치의 최신 스냅샷(관심종목 현재가·환율). 브랜치가 없거나 못 읽으면 null.
-  async board(tag, pick) {
+  // 시세판 수집(board-data 브랜치)의 파일 하나: 관심종목 현재가·환율(market--snapshot.json), 평가액 추이(networth--history.json).
+  // 브랜치 목록은 index() 한 번에 한 번만 받는다. 브랜치가 없거나 못 읽으면 null.
+  async board(file, tag, pick) {
     try {
       const base = `/repos/${this.owner}/${this.repo}`;
-      const br = await this.req(`${base}/branches/board-data`);
-      const tree = await this.req(`${base}/git/trees/${br.commit.sha}`);
-      const f = tree.tree.find(e => e.path === "market--snapshot.json");
+      this.boardTree ??= this.req(`${base}/branches/board-data`).then(br => this.req(`${base}/git/trees/${br.commit.sha}`));
+      const f = (await this.boardTree).tree.find(e => e.path === file);
       return f ? await this.jsonBySha(f.sha, tag, pick) : null;
     } catch { return null; }
   }
