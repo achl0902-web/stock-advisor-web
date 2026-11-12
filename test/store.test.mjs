@@ -112,3 +112,14 @@ test("inUsd: 그날 환율로 평가액·입출금을 달러로", async () => {
   assert.equal(sum.base, 1); assert.equal(sum.flows, 1); assert.ok(Math.abs(sum.pnl - 0) < 1e-9); // 원화로는 +400원이지만 달러로는 0
   assert.equal(inUsd({ t: ["x"], v: {}, fx: [null] }), null);
 });
+
+test("viewOn: 지난 날의 보유·평단·수익률", async () => {
+  const { viewOn, state } = await import("../assets/store.js");
+  state.model = { accounts: { a: { label: "A", holdings: [{ symbol: "QLD", qty: 9, currency: "USD", leverage: 2 }] } },
+    worth: { t: ["d0", "d1", "d2"], fx: [1000, null, 1200], v: { a: [null, null, null] }, cur: { QLD: "USD" },
+      pos: { a: [[0, { QLD: 2 }, 500, 1, { QLD: 40 }], [2, { QLD: 3 }, 0, 0, { QLD: 50 }]] }, px: { QLD: [0, [50, null, 60]] } } };
+  const v = viewOn("a", 1); // d1: 종가·환율이 없으면 앞 날 값
+  assert.equal(v.rows[0].h.qty, 2); assert.equal(v.rows[0].h.avg_price, 40); assert.equal(v.rows[0].pl, 25);
+  assert.equal(v.total, 2 * 50 * 1000 + 500 + 1000); assert.equal(v.on, "d1");
+  assert.ok(Math.abs(viewOn("a", 2).rows[0].pl - 20) < 1e-9);
+});
