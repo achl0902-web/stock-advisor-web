@@ -15,6 +15,7 @@
 | 성적 | 기간별 방향 적중·초과수익·분할 효과, 판단별 벤치마크 대비 | `reports/scorecard.json`, `config/scorecard_notes.json` |
 | 계좌 | 계좌별 보유·비중·평가손익, 퇴직연금 위험자산 70% 한도 | `config/accounts.json`, 계좌별 최근 `brief.json` |
 | ETF | 426020 리밸런싱 일지와 사후 평가 | `etfwatch/reports/*.md` |
+| 시세 (`sise.html`) | Funnest Charts 트레이딩 차트(지표·그리기 도구, 평단·관심가 선), 지수·선물·금리·환율·비트코인 띠, 관심종목, 내 가격선 사다리, 나스닥100·코스피 히트맵. 열 때와 5분마다 새 수집분 확인 | stock-advisor `board-data` 브랜치(`board` 워크플로가 장중 매시 덮어씀) |
 
 색은 국내 시장 관례대로 상승·매수 빨강, 하락·매도 파랑이며 항상 부호·글자와 함께 씁니다.
 
@@ -35,3 +36,4 @@
 - `assets/app.js`: 화면
 - `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
 - `assets/app.css`: 스타일(라이트·다크)
+- `sise.html`, `assets/sise.js`: 시세판. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다
