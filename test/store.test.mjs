@@ -71,18 +71,28 @@ test("levelLabel·levelNote: 알림 문구에서 이름과 설명을 나눈다",
 });
 
 import { worthSeries } from "../assets/store.js";
-test("worthSeries: 합계는 생기기 전 계좌를 빼고, 시세가 빈 날은 비우고, 지금 값을 붙인다", () => {
-  const worth = { t: ["2026-11-01", "2026-11-02", "2026-11-03"], labels: { c: "크립토" },
-    v: { a: [10, null, 30], c: [null, 5, 6] } };
-  const all = worthSeries(worth, "all", null, { a: 40, c: 7 }, "2026-11-04");
-  assert.deepEqual(all.points.map(p => p.v), [10, null, 36, 47]);
-  assert.equal(all.points.at(-1).t, "지금");
-  assert.deepEqual(all.marks, [{ t: "2026-11-02", label: "크립토 추가" }]);
-  // 변화는 처음에 있던 계좌(a)만으로: 10 → 40, 크립토는 추가분으로 따로
-  assert.deepEqual(all.change, { d: 30, r: 300, since: "2026-11-01", added: ["크립토"] });
-  assert.deepEqual(worthSeries(worth, "c", null, null, "2026-11-03").points.map(p => p.v), [5, 6]); // 생기기 전 날은 잘라 냄
-  assert.deepEqual(worthSeries(worth, ["a", "c"], null, null, "2026-11-03").points.map(p => p.v), [10, null, 36]);
-  assert.deepEqual(worthSeries(worth, "a", null, { a: 7 }, "2026-11-03").points.map(p => p.v), [10, null, 7]); // 오늘 값은 지금 값으로
-  assert.deepEqual(worthSeries(worth, "a", 1, null, "2026-11-03").points.map(p => p.t), ["2026-11-02", "2026-11-03"]);
-  assert.equal(worthSeries(null, "all").change, null);
+test("worthSeries: 입출금을 뺀 투자손익·수익률, 기간 중 생긴 계좌는 입금으로", () => {
+  const worth = { t: ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"],
+    v: { a: [100, 120, 230, 220], c: [null, null, 50, 60] },
+    f: { a: [0, 0, 100, 0], c: [0, 0, 0, 0] },
+    events: { a: [{ d: "2026-11-03", label: "입금" }] } };
+  const a = worthSeries(worth, "a", {}, null, "2026-11-04");
+  assert.deepEqual(a.points.map(p => p.v), [100, 120, 230, 220]);
+  assert.deepEqual(a.points.map(p => p.p), [100, 100, 200, 200]);  // 투자원금: 11/3에 100 입금
+  assert.deepEqual(a.sum, { from: "2026-11-01", to: "2026-11-04", base: 100, end: 220, flows: 100, principal: 200, pnl: 20, rate: 10 });
+  assert.deepEqual(a.marks, [{ t: "2026-11-03", label: "입금" }]);
+  // 합계: c가 11/3에 생기면 그 50은 입금, 이후 +10은 손익
+  const all = worthSeries(worth, ["a", "c"], {}, null, "2026-11-04");
+  assert.deepEqual(all.points.map(p => p.v), [100, 120, 280, 280]);
+  assert.equal(all.sum.flows, 150);
+  assert.equal(all.sum.pnl, 30);
+  // 기간 11/3~11/3: 기초는 전날(11/2) 마감 120, 11/3에 100 입금하고 230 → 손익 10
+  assert.deepEqual(worthSeries(worth, "a", { from: "2026-11-03", to: "2026-11-03" }, null, "2026-11-04").sum,
+    { from: "2026-11-02", to: "2026-11-03", base: 120, end: 230, flows: 100, principal: 220, pnl: 10, rate: 10 / 220 * 100 });
+  const live = worthSeries(worth, "a", {}, { a: 250 }, "2026-11-05");
+  assert.equal(live.points.at(-1).t, "지금");
+  assert.equal(live.sum.pnl, 50);
+  // 그 계좌가 생기기 전 날은 앞에서 잘라 낸다
+  assert.deepEqual(worthSeries(worth, "c", {}, null, "2026-11-04").points.map(p => p.t), ["2026-11-03", "2026-11-04"]);
+  assert.equal(worthSeries(null, "all").sum, null);
 });
