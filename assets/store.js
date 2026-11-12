@@ -262,6 +262,19 @@ export function worthSeries(worth, key, win = {}, now = null, today = todayKST()
   const flows = points[i1].p - base, endV = points[i1].v;
   const pnl = endV - base - flows, principal = base + flows;
   const sum = { from: points[i0].t, to: points[i1].t, base, end: endV, flows, principal, pnl, rate: principal > 0 ? pnl / principal * 100 : null };
+  // 실현손익·배당·이자: 기초 다음 날부터 기말까지(거래내역이 있는 계좌만). 나머지는 아직 팔지 않은 평가손익의 변화
+  const upto = sum.to === "지금" ? today : sum.to;
+  const inWin = d => d > sum.from && d <= upto;
+  const known = keys.filter(k => worth.realized?.[k]);
+  if (known.length) {
+    const sells = known.flatMap(k => worth.realized[k].filter(([d]) => inWin(d)).map(([d, sym, v]) => ({ d, sym, v, k })));
+    const income = known.flatMap(k => worth.income?.[k] || []).filter(([d]) => inWin(d));
+    sum.realized = sells.reduce((a, x) => a + x.v, 0);
+    sum.income = income.reduce((a, [, , v]) => a + v, 0);
+    sum.unrealized = pnl - sum.realized - sum.income;
+    sum.sells = sells.sort((a, b) => b.d.localeCompare(a.d));
+    sum.partial = known.length < keys.length; // 거래내역이 없는 계좌가 섞임
+  }
   const marks = (worth.events ? keys.flatMap(k => (worth.events[k] || []).map(e => ({ t: e.d, label: e.label }))) : [])
     .filter(m => points.some(p => p.t === m.t));
   return { points, marks, sum };

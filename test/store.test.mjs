@@ -95,4 +95,10 @@ test("worthSeries: 입출금을 뺀 투자손익·수익률, 기간 중 생긴 �
   // 그 계좌가 생기기 전 날은 앞에서 잘라 낸다
   assert.deepEqual(worthSeries(worth, "c", {}, null, "2026-11-04").points.map(p => p.t), ["2026-11-03", "2026-11-04"]);
   assert.equal(worthSeries(null, "all").sum, null);
+  // 실현손익·배당은 기초 다음 날부터 기말까지만
+  const rz = { ...worth, realized: { a: [["2026-11-01", "X", 999], ["2026-11-03", "QLD", 7]] }, income: { a: [["2026-11-04", "배당", 3]] } };
+  const r = worthSeries(rz, "a", {}, null, "2026-11-04").sum;
+  assert.deepEqual([r.realized, r.income, r.unrealized, r.sells.length, r.partial], [7, 3, 10, 1, false]);
+  assert.equal(worthSeries(rz, ["a", "c"], {}, null, "2026-11-04").sum.partial, true);
+  assert.equal(worthSeries(worth, "a", {}, null, "2026-11-04").sum.realized, undefined); // 거래내역이 없으면 칸을 안 그린다
 });
