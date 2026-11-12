@@ -1,6 +1,6 @@
 // 판단 일지: 연결·불러오기·화면 이동. 화면은 view-*.js, 데이터 모델은 store.js, 공통 조각은 ui.js.
 import { Repo, ApiError, settings, fetchStrategyStatus } from "./data.js";
-import { state, loadModel } from "./store.js";
+import { state, loadModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
 import { renderHome } from "./view-home.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
@@ -112,7 +112,9 @@ async function boot() {
   booting = (async () => {
     try {
       const onProgress = (n, total) => { const el = document.getElementById("progress"); if (el && total) el.textContent = `판단 기록 ${n}/${total}`; };
-      const [model, strategy] = await Promise.all([loadModel(state.repo, onProgress), fetchStrategyStatus()]);
+      // 새로 불러올 때는 이미 펼쳐 둔 만큼 다시 읽는다(바뀐 파일만 받고 나머지는 캐시)
+      const count = Math.max(FIRST_PAGE, state.model?.shown || 0);
+      const [model, strategy] = await Promise.all([loadModel(state.repo, onProgress, count), fetchStrategyStatus()]);
       Object.assign(state, { model, strategy, loadedAt: Date.now() });
       const at = new Date(model.head.date);
       setSync(`${ago(at)} 갱신`);

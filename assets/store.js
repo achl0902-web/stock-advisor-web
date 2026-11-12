@@ -67,9 +67,55 @@ function accountOf(run, accounts) {
   return "main";
 }
 
-export async function loadModel(repo, onProgress = () => {}) {
+// 판단은 최근 것부터 나눠 읽는다. 처음 FIRST_PAGE건, "더 불러오기"마다 MORE_PAGE건.
+export const FIRST_PAGE = 20;
+export const MORE_PAGE = 50;
+
+async function loadRun(repo, id) {
+  const p = f => `runs/${id}/${f}`;
+  const [brief, dec, plan, account, pm] = await Promise.all([
+    repo.json(p("brief.json"), "brief1", pickBrief),
+    repo.json(p("final_decision.json"), "dec1", pickDecision),
+    repo.json(p("plan.json")),
+    repo.has(p("account.json")) ? repo.json(p("account.json"), "acc1", pickAccount) : null,
+    repo.has(p("premortem.json")) ? repo.json(p("premortem.json"), "pm1", x => ({ verdict: x.verdict })) : null,
+  ]);
+  const meta = brief?.meta || {};
+  const at = meta.collected_at ? new Date(meta.collected_at) : parseRunTime(id);
+  return {
+    id, at, brief, dec, plan, account, premortem: pm,
+    symbol: meta.symbol || id.split("-").slice(2).join("-"),
+    name: meta.name || null,
+    exchange: meta.exchange,
+    currency: meta.currency || (meta.market === "KR" ? "KRW" : "USD"),
+    price: brief?.price ?? plan?.price_now ?? null,
+    quoteAt: brief?.quote_at ? new Date(brief.quote_at) : at,
+  };
+}
+
+// 종목별 가장 최근 시세만 남긴다: 판단 시점, 가격 알림 점검, 시세판 수집 중 가장 늦은 것
+function putQuote(quotes, sym, q) {
+  if (q.price != null && (!quotes[sym] || (q.at && q.at > quotes[sym].at))) quotes[sym] = q;
+}
+
+// 새로 읽은 판단을 모델에 넣는다. 이름은 시세판·알림 설정의 한글 이름이 있으면 그것을 쓴다.
+function absorb(m, runs) {
+  for (const r of runs) {
+    if (m.byId.has(r.id)) continue;
+    if (r.name && !m.names[r.symbol]) m.names[r.symbol] = r.name;
+    r.name = m.names[r.symbol] || r.symbol;
+    r.accountKey = accountOf(r, m.accounts);
+    putQuote(m.quotes, r.symbol, { price: r.price, at: r.quoteAt, currency: r.currency });
+    m.byId.set(r.id, r);
+  }
+  m.runs = [...m.byId.values()].sort((a, b) => b.id.localeCompare(a.id));
+}
+
+export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE) {
   const head = await repo.index();
   const ids = [...new Set(repo.list("runs/").map(p => p.split("/")[1]))].filter(id => id && !/test/i.test(id)).sort().reverse();
+  // 판단까지 간 실행만 목록에 둔다(데이터 수집만 한 실행은 뺀다). 파일 목록만 보면 알 수 있어 읽지 않는다.
+  const doneIds = ids.filter(id => repo.has(`runs/${id}/final_decision.json`));
   const [accounts, alerts, alertState, scorecard, notes, openOrders, board] = await Promise.all([
     repo.json("config/accounts.json"),
     repo.json("config/price_alerts.json"),
@@ -79,51 +125,51 @@ export async function loadModel(repo, onProgress = () => {}) {
     repo.json("config/open_orders.json"),
     repo.board("board1", pickBoard),
   ]);
+  const first = doneIds.slice(0, count);
   let loaded = 0;
-  onProgress(0, ids.length);
-  const runs = await Promise.all(ids.map(async id => {
-    const p = f => `runs/${id}/${f}`;
-    const done = repo.has(p("final_decision.json"));
-    const [brief, dec, plan, account, pm] = await Promise.all([
-      repo.json(p("brief.json"), "brief1", pickBrief),
-      done ? repo.json(p("final_decision.json"), "dec1", pickDecision) : null,
-      done ? repo.json(p("plan.json")) : null,
-      repo.has(p("account.json")) ? repo.json(p("account.json"), "acc1", pickAccount) : null,
-      done && repo.has(p("premortem.json")) ? repo.json(p("premortem.json"), "pm1", x => ({ verdict: x.verdict })) : null,
-    ]);
-    onProgress(++loaded, ids.length);
-    const meta = brief?.meta || {};
-    const at = meta.collected_at ? new Date(meta.collected_at) : parseRunTime(id);
-    return {
-      id, at, done, brief, dec, plan, account, premortem: pm,
-      symbol: meta.symbol || id.split("-").slice(2).join("-"),
-      name: meta.name || null,
-      exchange: meta.exchange,
-      currency: meta.currency || (meta.market === "KR" ? "KRW" : "USD"),
-      price: brief?.price ?? plan?.price_now ?? null,
-      quoteAt: brief?.quote_at ? new Date(brief.quote_at) : at,
-    };
-  }));
-  // 이름: 판단 기록 < 시세판 < 알림 설정 순으로 덮어쓴다 (뒤쪽이 한글 이름)
+  onProgress(0, first.length);
+  const runs = await Promise.all(first.map(id => loadRun(repo, id).then(r => (onProgress(++loaded, first.length), r))));
+  // 이름: 시세판 < 알림 설정 순으로 덮어쓴다(뒤쪽이 한글 이름). 판단 기록의 이름은 둘 다 없을 때만.
   const names = {};
-  for (const r of [...runs].reverse()) if (r.name) names[r.symbol] = r.name;
   for (const [code, q] of Object.entries(board?.quotes || {})) if (q.name) names[code] = q.name;
   for (const it of alerts?.items || []) names[it.code] = it.name;
-  for (const r of runs) {
-    r.name = names[r.symbol] || r.name || r.symbol;
-    r.accountKey = accountOf(r, accounts);
-  }
-  // 종목별 가장 최근 시세: 판단 시점, 가격 알림 점검, 시세판 수집 중 가장 늦은 것
   const quotes = {};
-  const put = (sym, q) => { if (q.price != null && (!quotes[sym] || (q.at && q.at > quotes[sym].at))) quotes[sym] = q; };
-  for (const r of runs) put(r.symbol, { price: r.price, at: r.quoteAt, currency: r.currency });
   const checked = alertState?.checked_at ? new Date(alertState.checked_at) : null;
-  for (const [code, q] of Object.entries(alertState?.quotes || {})) put(code, { price: q?.price, at: checked, currency: quotes[code]?.currency || "KRW" });
+  for (const [code, q] of Object.entries(alertState?.quotes || {})) putQuote(quotes, code, { price: q?.price, at: checked, currency: "KRW" });
   const boardAt = board?.asof ? new Date(board.asof) : null;
-  for (const [code, q] of Object.entries(board?.quotes || {})) put(code, { ...q, at: boardAt });
-  const fx = board?.fx || runs.find(r => r.brief?.fx)?.brief.fx || null;
-  const byRun = Object.fromEntries((scorecard || []).map(s => [s.run, s]));
-  return { head, runs, accounts: accounts || {}, alerts, alertState, scorecard: scorecard || [], byRun, notes: notes || {}, names, quotes, fx, boardAt, openOrders: openOrders?.orders || [] };
+  for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
+  const m = {
+    head, doneIds, shown: first.length, collectOnly: ids.length - doneIds.length,
+    runs: [], byId: new Map(), accounts: accounts || {}, alerts, alertState,
+    scorecard: scorecard || [], byRun: Object.fromEntries((scorecard || []).map(s => [s.run, s])),
+    notes: notes || {}, names, quotes, boardAt, openOrders: openOrders?.orders || [],
+  };
+  absorb(m, runs); // 최근 것부터 넣어 같은 종목이면 최근 판단의 이름이 남는다(시세는 시각으로 고른다)
+  m.fx = board?.fx || m.runs.find(r => r.brief?.fx)?.brief.fx || null;
+  return m;
+}
+
+// 목록에 보이는 판단: 최근부터 끊김 없이 읽은 만큼
+export const shownRuns = () => {
+  const m = state.model;
+  return m.doneIds.slice(0, m.shown).map(id => m.byId.get(id)).filter(Boolean);
+};
+export const moreLeft = () => state.model.doneIds.length - state.model.shown;
+
+export async function loadMoreRuns(n = MORE_PAGE) {
+  const m = state.model;
+  const next = m.doneIds.slice(m.shown, m.shown + n);
+  absorb(m, await Promise.all(next.filter(id => !m.byId.has(id)).map(id => loadRun(state.repo, id))));
+  m.shown += next.length;
+}
+
+// 성적표 등에서 아직 읽지 않은 판단 하나를 열 때. 판단까지 가지 않은 실행이면 null.
+export async function ensureRun(id) {
+  const m = state.model;
+  if (m.byId.has(id)) return m.byId.get(id);
+  if (!m.doneIds.includes(id)) return null;
+  absorb(m, [await loadRun(state.repo, id)]);
+  return m.byId.get(id);
 }
 
 /* ---------- 계좌 ---------- */
