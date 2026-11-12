@@ -345,9 +345,12 @@ function mergedView(views) {
   return { key: "all", a, rows, cash, total, live: views.every(v => v.live), cashPct: total ? cash / total * 100 : null, snap: null, on: views.find(v => v.on)?.on };
 }
 
+// 가족 보기는 주 계좌와 코인만 한 화면에(바이오·퇴직연금은 보이지 않게)
+const FAMILY_KEYS = ["main", "crypto"];
 function renderGroup() {
   const tab = "accounts";
-  const keys = accountGroup(state.model.accounts, false);
+  const fam = !!window.saFamily;
+  const keys = fam ? FAMILY_KEYS.filter(k => state.model.accounts[k]) : accountGroup(state.model.accounts, false);
   if (!keys.length) { view.innerHTML = `${subtabs(TABS, tab)}<p class="none">이 묶음의 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`; return; }
   if (picked[tab] !== "all" && !keys.includes(picked[tab])) picked[tab] = "all";
   const cur = picked[tab];
@@ -376,7 +379,7 @@ function renderGroup() {
   };
   trends = [];
   view.innerHTML = `
-    ${subtabs(TABS, tab)}
+    ${fam ? "" : subtabs(TABS, tab)}
     ${rangeBox({ units: true })}
     <div class="accounts">
       <div class="col">
