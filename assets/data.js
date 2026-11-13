@@ -96,6 +96,12 @@ export class Repo {
     return this.head;
   }
 
+  // 트리(index) 없이 파일 하나를 바로 읽는다(시세판 홈처럼 판단 기록이 필요 없는 화면). 없으면 null.
+  async raw(path) {
+    try { return JSON.parse(await this.req(`/repos/${this.owner}/${this.repo}/contents/${path}`, "application/vnd.github.raw+json")); }
+    catch (e) { if (e instanceof ApiError && e.status === 404) return null; throw e; }
+  }
+
   has(path) { return this.files.has(path); }
 
   list(prefix) {

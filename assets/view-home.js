@@ -1,4 +1,4 @@
-// 오늘: 최신 판단과 주문, 걸어 둔 주문, 가까운 관심가, 다가오는 날짜, QLD 전략 상태, 성적 요약.
+// 기록 탭 위쪽(최신 판단과 주문, 걸어 둔 주문, 다가오는 날짜, 성적 요약)과 시세판 홈 패널(가까운 관심가, QLD 전략 상태).
 import { DEC, state, shownRuns, accountLabel, accountShort, levelItems, levelLabel, levelNote, nearest, upcoming, scoreSummary, todayKST } from "./store.js";
 import { view, esc, money, nf, pp, tone, dateLabel, dday, distText, seal, confidence, ticket, runRow, head, moreLink, icon } from "./ui.js";
 
@@ -43,16 +43,16 @@ function ordersPanel() {
   </section>`;
 }
 
-// 현재가에서 가장 가까운 관심가. 막대는 20% 밖이면 비고 닿을수록 찬다.
-function nearPanel(items) {
+// 현재가에서 가장 가까운 관심가. 막대는 20% 밖이면 비고 닿을수록 찬다. pre: 판단 일지 밖(시세판)에서 그릴 때 주소 앞에 붙인다.
+export function nearPanel(items, pre = "") {
   // 종목마다 가장 가까운 선 하나만
   const seen = new Set();
   const rows = nearest(items, state.model.quotes, 99).filter(r => !seen.has(r.item) && seen.add(r.item)).slice(0, 5);
   if (!rows.length) return "";
   return `<section class="panel">
-    ${head("가까운 관심가", moreLink("#/assets/levels", "전체"))}
+    ${head("가까운 관심가", moreLink(pre + "#/assets/levels", "전체"))}
     <ul class="near">${rows.map(({ item, level, quote, dist, reached }) => `<li>
-      <a href="#/assets/levels">
+      <a href="${pre}#/assets/levels">
         <span class="near-main"><b>${esc(item.name)}</b><small><span>${esc(levelLabel(level.msg))}</span><span>${esc(accountShort(item.account))}</span></small></span>
         <span class="near-side"><b class="fig">${money(level.price, item.currency)}</b><small class="${reached ? "tone-warn" : ""}">${reached ? "닿음, 확인 필요" : `지금 ${money(quote.price, item.currency)}에서 ${distText(dist)}`}</small></span>
         <span class="meter ${level.op === "<=" ? "meter-down" : "meter-up"}" aria-hidden="true"><i style="width:${reached ? 100 : Math.max(4, 100 - Math.abs(dist) * 5).toFixed(0)}%"></i></span>
@@ -74,7 +74,7 @@ function datesPanel(items) {
   </section>`;
 }
 
-function strategyPanel() {
+export function strategyPanel() {
   const s = state.strategy;
   if (!s) return "";
   const out = s.regime === "out";
@@ -103,23 +103,11 @@ function scorePanel() {
   </section>`;
 }
 
-export function renderHome() {
-  const done = shownRuns();
-  const items = levelItems();
-  view.innerHTML = `<div class="home">
-    <div class="col">
-      ${hero(done[0])}
-      ${ordersPanel()}
-      <section class="panel">
-        ${head("최근 판단", moreLink("#/log", `전체 ${state.model.doneIds.length}건`))}
-        <div class="rows">${done.slice(1, 6).map(r => runRow(r)).join("") || `<p class="none">이전 판단이 없습니다.</p>`}</div>
-      </section>
-    </div>
-    <div class="col">
-      ${nearPanel(items)}
-      ${datesPanel(items)}
-      ${strategyPanel()}
-      ${scorePanel()}
-    </div>
+export function logTop() {
+  return `<div class="log-top">
+    ${hero(shownRuns()[0])}
+    ${ordersPanel()}
+    ${datesPanel(levelItems())}
+    ${scorePanel()}
   </div>`;
 }

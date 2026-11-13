@@ -37,7 +37,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 
 .wrap { max-width: var(--page); margin: 0 auto; padding: 4px var(--gut) 0; display: grid; gap: 14px; align-content: start; }
 /* 그리드 칸이 안의 긴 표·알약 때문에 화면보다 넓어지지 않게 */
-.wrap > *, .col > *, .home > *, .run > *, .accounts > *, .etf > * { min-width: 0; }
+.wrap > *, .col > *, .log-top > *, .run > *, .accounts > *, .etf > * { min-width: 0; }
 @media (min-width: 1024px) { .narrow { --page: 780px; } }
 
 /* ---------- 위쪽 띠 ---------- */
@@ -106,7 +106,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .hero-meta > b { font-weight: 700; }
 .hero > .more { justify-self: start; padding-left: 0; }
 .gist { padding-left: 12px; border-left: 2px solid var(--line); color: var(--sub); font-size: 14px; line-height: 1.65; max-width: 68ch; }
-.home .seal { animation: stamp .5s cubic-bezier(.2, .9, .3, 1.2) both .1s; }
+.log-top .seal { animation: stamp .5s cubic-bezier(.2, .9, .3, 1.2) both .1s; }
 @keyframes stamp { 0% { opacity: 0; transform: rotate(-12deg) scale(1.7); } 60% { opacity: 1; transform: rotate(-3deg) scale(.94); } 100% { opacity: 1; transform: rotate(-4deg) scale(1); } }
 
 /* 주문 티켓: 좁으면 수량·금액이 아랫줄로 내려간다 */
@@ -137,8 +137,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 @media (hover: hover) { .rr:hover b { color: var(--accent); } }
 
 /* ---------- 오늘 ---------- */
-.home { display: grid; gap: 14px; }
-@media (min-width: 900px) { .home { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; } }
+.log-top { display: grid; gap: 14px; margin-bottom: 18px; }
 
 .near li + li { border-top: 1px solid var(--line); }
 .near a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; padding: 12px 0; text-decoration: none; }
