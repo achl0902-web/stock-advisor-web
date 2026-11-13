@@ -2,16 +2,14 @@
 import { Repo, ApiError, settings, fetchStrategyStatus } from "./data.js";
 import { state, loadModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
-import { renderHome } from "./view-home.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
 import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-assets.js";
 
 const DEFAULT_REPO = "achl0902-web/stock-advisor";
 const syncEl = document.getElementById("sync");
 
-// 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf)도 받는다.
+// 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf)도 받는다. 빈 주소는 시세판(홈)으로 넘긴다.
 const ROUTES = {
-  "": ["home", renderHome],
   "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
   "assets": ["assets", renderAccounts], "assets/long": ["assets", renderLongTerm], "assets/levels": ["assets", renderLevels], "assets/etf": ["assets", renderEtf],
@@ -32,13 +30,14 @@ if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우�
 
 function route({ keep = false } = {}) {
   let path = location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
+  if (path === "") { location.replace("sise.html" + location.search); return; }
   if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
   if (lastPath != null) scrolls.set(lastPath, scrollY);
   const y = keep ? scrollY : (lastPath?.startsWith("run/") && scrolls.get(path)) || 0;
   lastPath = path;
   if (path === "settings") { setTab(null); document.body.classList.add("narrow"); renderSetup(); scrollTo(0, 0); return; }
   if (!state.model) return;
-  const [tab, render, width] = path.startsWith("run/") ? ["log", () => renderRun(decodeURIComponent(path.slice(4)))] : ROUTES[path] || ROUTES[""];
+  const [tab, render, width] = path.startsWith("run/") ? ["log", () => renderRun(decodeURIComponent(path.slice(4)))] : ROUTES[path] || ROUTES.log;
   const draw = () => {
     setTab(tab);
     document.body.classList.toggle("narrow", !!width); // 목록 화면은 넓은 모니터에서도 읽기 좋은 폭으로

@@ -1,6 +1,7 @@
 // 기록: 판단 목록, 추천 성적표, 판단 상세.
 import { DEC, ACCOUNT_ORDER, state, shownRuns, moreLeft, loadMoreRuns, ensureRun, accountLabel, accountShort, scoreSummary, verdict, MORE_PAGE } from "./store.js";
 import { markdown } from "./md.js";
+import { logTop } from "./view-home.js";
 import { view, esc, money, nf, pct, pp, tone, dateLabel, krwShort, qtyText, seal, mark, confidence, ticket, runRow, head, subtabs, chips, bindChips, note, icon } from "./ui.js";
 
 const TABS = [["#/log", "판단", "runs"], ["#/log/score", "성적", "score"]];
@@ -23,6 +24,7 @@ export function renderRuns() {
   const left = moreLeft();
   view.innerHTML = `
     ${subtabs(TABS, "runs")}
+    ${logTop()}
     ${chips([["all", "전체"], ...keys.map(k => [k, accountShort(k)])], acct, "계좌")}
     <p class="hint foot">${left ? `최근 판단 ${done.length}건을 불러왔습니다. 전체 ${m.doneIds.length}건.` : `판단 ${m.doneIds.length}건을 모두 불러왔습니다.`}</p>
     ${[...days].map(([d, rs]) => `<section class="day"><h2>${esc(d)}</h2><div class="panel rows">${rs.map(r => runRow(r, { time: true })).join("")}</div></section>`).join("")

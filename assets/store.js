@@ -32,7 +32,7 @@ const pickBrief = b => ({
 });
 const pickDecision = d => ({ decision: d.decision, confidence: d.confidence, gist: sentences(d.rationale, 2) });
 const pickAccount = a => ({ id: a.id, purpose: a.purpose, holdings: (a.holdings || []).map(h => ({ symbol: h.symbol })) });
-const pickBoard = s => {
+export const pickBoard = s => {
   const quotes = {};
   for (const w of s.watch || []) quotes[w.code] = { price: w.last, chg: w.chg_pct, name: w.name, currency: w.market === "US" ? "USD" : "KRW" };
   let fx = null;
@@ -111,6 +111,19 @@ function absorb(m, runs) {
   m.runs = [...m.byId.values()].sort((a, b) => b.id.localeCompare(a.id));
 }
 
+// 계좌·관심가·시세(이름 포함). 판단 일지와 시세판 홈이 같이 쓴다. 이름은 시세판 < 알림 설정 순으로 덮어쓴다(뒤쪽이 한글 이름).
+export function levelsModel({ accounts, alerts, alertState, board }) {
+  const names = {};
+  for (const [code, q] of Object.entries(board?.quotes || {})) if (q.name) names[code] = q.name;
+  for (const it of alerts?.items || []) names[it.code] = it.name;
+  const quotes = {};
+  const checked = alertState?.checked_at ? new Date(alertState.checked_at) : null;
+  for (const [code, q] of Object.entries(alertState?.quotes || {})) putQuote(quotes, code, { price: q?.price, at: checked, currency: "KRW" });
+  const boardAt = board?.asof ? new Date(board.asof) : null;
+  for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
+  return { accounts: accounts || {}, alerts, alertState, names, quotes, boardAt, fx: board?.fx || null };
+}
+
 export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE) {
   const head = await repo.index();
   const ids = [...new Set(repo.list("runs/").map(p => p.split("/")[1]))].filter(id => id && !/test/i.test(id)).sort().reverse();
@@ -132,24 +145,17 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
   let loaded = 0;
   onProgress(0, first.length);
   const runs = await Promise.all(first.map(id => loadRun(repo, id).then(r => (onProgress(++loaded, first.length), r))));
-  // 이름: 시세판 < 알림 설정 순으로 덮어쓴다(뒤쪽이 한글 이름). 판단 기록의 이름은 둘 다 없을 때만.
-  const names = {};
-  for (const [code, q] of Object.entries(board?.quotes || {})) if (q.name) names[code] = q.name;
-  for (const it of alerts?.items || []) names[it.code] = it.name;
-  const quotes = {};
-  const checked = alertState?.checked_at ? new Date(alertState.checked_at) : null;
-  for (const [code, q] of Object.entries(alertState?.quotes || {})) putQuote(quotes, code, { price: q?.price, at: checked, currency: "KRW" });
-  const boardAt = board?.asof ? new Date(board.asof) : null;
-  for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
+  // 판단 기록의 이름은 시세판·알림 설정 이름이 둘 다 없을 때만
   const m = {
+    ...levelsModel({ accounts, alerts, alertState, board }),
     head, doneIds, shown: first.length, collectOnly: ids.length - finished.length, refCount: finished.length - doneIds.length,
-    runs: [], byId: new Map(), accounts: accounts || {}, alerts, alertState,
+    runs: [], byId: new Map(),
     // 성적표가 아직 다시 채점되기 전이어도 참고용 판단은 성적에서 뺀다
     scorecard: (scorecard || []).filter(s => !isRef(s.run)), byRun: Object.fromEntries((scorecard || []).map(s => [s.run, s])),
-    notes: notes || {}, names, quotes, boardAt, openOrders: openOrders?.orders || [], worth,
+    notes: notes || {}, openOrders: openOrders?.orders || [], worth,
   };
   absorb(m, runs); // 최근 것부터 넣어 같은 종목이면 최근 판단의 이름이 남는다(시세는 시각으로 고른다)
-  m.fx = board?.fx || m.runs.find(r => r.brief?.fx)?.brief.fx || null;
+  m.fx ||= m.runs.find(r => r.brief?.fx)?.brief.fx || null;
   return m;
 }
 

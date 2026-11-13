@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#000000">
@@ -37,8 +37,8 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 .is-up { color: var(--up); } .is-down { color: var(--down); } .is-flat { color: var(--sub); }
 .sub { color: var(--sub); font-size: 12.5px; }
 
-.shell { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) calc(var(--tab-h) + 36px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 10px; }
-@media (min-width: 420px) { .shell { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) calc(var(--tab-h) + 36px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 420px) { body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
 
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { white-space: nowrap; font-family: var(--font-fig); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
@@ -46,7 +46,7 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 .btn { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; white-space: nowrap; }
 .btn:hover { border-color: var(--accent); }
 .top-right a.btn[href="./"] { display: none; } /* 아래 탭이 대신한다 */
-@media (min-width: 1024px) { .shell { padding-bottom: 24px; } }
+@media (min-width: 1024px) { body { padding-bottom: 24px; } }
 .btn:disabled { opacity: .6; cursor: default; }
 .dot.is-busy { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
@@ -158,6 +158,58 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 
 .foot { color: var(--sub); font-size: 11.5px; padding-inline: 2px; }
 
+/* 홈 패널: #root·.shell을 풀어 body가 줄을 세우고, 홈 패널(#home, assets/home.js)을 시세 띠 바로 아래에 끼운다 */
+#root, .shell { display: contents; }
+.shell > * { order: 5; }
+.shell > .top { order: 0; } .shell > .alert { order: 1; } .shell > .tape { order: 2; } #home { order: 3; }
+#home { display: grid; gap: 10px; align-items: start; }
+#home:empty { display: none; }
+@media (min-width: 761px) { #home { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+#home ul { list-style: none; margin: 0; padding: 0; }
+#home a { color: inherit; }
+#home .panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+#home .panel-h h2 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+#home .hint { color: var(--dim); font-size: 12.5px; }
+#home .fig { font-family: var(--font-fig); font-variant-numeric: tabular-nums; }
+#home .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#home .more { display: inline-flex; align-items: center; font-size: 13px; color: var(--sub); text-decoration: none; white-space: nowrap; }
+#home .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#home .tone-warn { color: var(--warn); }
+#home .st-state { font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
+#home .strategy.is-out { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--down) 50%, transparent); }
+#home .axes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+#home .axes li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--raised); font-size: 12.5px; color: var(--dim); }
+#home .axes i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--dim); }
+#home .axes .on { color: var(--ink); font-weight: 600; }
+#home .axes .on i { background: var(--down); box-shadow: none; }
+#home .near li + li { border-top: 1px solid var(--line); }
+#home .near a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 10px 0; text-decoration: none; }
+#home .near li:first-child a { padding-top: 0; }
+#home .near-main, #home .near-side { display: grid; gap: 1px; min-width: 0; }
+#home .near-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#home .near small { display: flex; gap: 6px; font-size: 12px; color: var(--dim); }
+#home .near-side { justify-items: end; text-align: right; }
+#home .near-side b { font-family: var(--font-fig); font-size: 15px; }
+#home .meter { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--raised); overflow: hidden; }
+#home .meter i { display: block; height: 100%; border-radius: 4px; background: var(--down); }
+#home .meter-up i { background: var(--up); margin-left: auto; }
+#home .dates li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+#home .dates li:first-child { border-top: 0; padding-top: 0; }
+#home .dday { align-self: start; display: grid; place-items: center; height: 26px; border-radius: 8px; background: var(--raised); font-size: 12px; font-weight: 600; white-space: nowrap; }
+#home .dates .due .dday { background: var(--accent-wash); color: var(--accent); }
+#home .dates .done { opacity: .6; }
+#home .dates-main { display: grid; gap: 2px; min-width: 0; }
+#home .dates-main b { font-size: 13.5px; font-weight: 600; }
+#home .dates-main a { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+#home .dates-main small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+#home .tag { padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--raised); color: var(--sub); }
+#home .tag-fomc, #home .tag-cpi, #home .tag-jobs { background: var(--warn-wash); color: var(--warn); }
+#home .tag-earnings { background: var(--accent-wash); color: var(--accent); }
+#home .tag-disclosure, #home .tag-etf { background: var(--down-wash); color: var(--down-ink); }
+#home .past { margin-top: 10px; }
+#home .past summary { cursor: pointer; font-size: 12.5px; color: var(--sub); padding: 4px 0; }
+#home .past .dates { margin-top: 8px; }
+
 .empty { min-height: 70vh; display: grid; place-items: center; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .empty-card { max-width: 32ch; display: grid; gap: 8px; text-align: left; color: var(--sub); }
 .empty-card .brand { color: var(--ink); }
@@ -166,9 +218,11 @@ h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
 </style>
 </head>
 <body>
+<section id="home" aria-label="오늘 볼 것"></section>
 <div id="root"></div>
 <nav id="tabbar" class="tabbar" aria-label="화면" data-current="sise"></nav>
 <script src="assets/nav.js"></script>
 <script src="assets/sise.js"></script>
+<script type="module" src="assets/home.js"></script>
 </body>
 </html>
