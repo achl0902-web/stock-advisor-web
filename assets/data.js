@@ -4,9 +4,9 @@
 // 큰 JSON(brief·final_decision)은 화면에 쓰는 부분만 추려 캐시한다. 통째로 넣으면 localStorage 한도(약 5MB)를 넘겨 캐시가 매번 비워진다.
 
 const API = "https://api.github.com";
-const CACHE_PREFIX = "sa:b2:";
-// 예전 캐시(원문 통째 저장)는 한 번 지운다
-try { Object.keys(localStorage).filter(k => k.startsWith("sa:blob:")).forEach(k => localStorage.removeItem(k)); } catch { /* 무시 */ }
+const CACHE_PREFIX = "sa:b3:";
+// 예전 캐시는 한 번 지운다(b2에는 수집마다 새로 생긴 평가액 추이가 쌓여 한도를 채웠다)
+try { Object.keys(localStorage).filter(k => k.startsWith("sa:blob:") || k.startsWith("sa:b2:")).forEach(k => localStorage.removeItem(k)); } catch { /* 무시 */ }
 const MAX_CACHE_BYTES = 400_000; // 한 파일이 이보다 크면 캐시하지 않는다
 
 export class ApiError extends Error {
@@ -43,7 +43,7 @@ function cachePut(sha, text) {
   }
 }
 
-// 동시에 6개까지만 요청
+// 동시에 12개까지만 요청
 function limiter(n) {
   let active = 0;
   const queue = [];
@@ -63,7 +63,7 @@ export class Repo {
     this.token = token;
     this.files = new Map();
     this.head = null;
-    this.limit = limiter(6);
+    this.limit = limiter(12);
     this.inflight = new Map();
   }
 
@@ -145,12 +145,13 @@ export class Repo {
 
   // 시세판 수집(board-data 브랜치)의 파일 하나: 관심종목 현재가·환율(market--snapshot.json), 평가액 추이(networth--history.json).
   // 브랜치 목록은 index() 한 번에 한 번만 받는다. 브랜치가 없거나 못 읽으면 null.
-  async board(file, tag, pick) {
+  // 캐시하지 않는다: 수집할 때마다 내용이 바뀌어 다시 쓸 일이 없고, 쌓이면 localStorage가 차서 판단 캐시까지 통째로 비워진다.
+  async board(file, pick = x => x) {
     try {
       const base = `/repos/${this.owner}/${this.repo}`;
       this.boardTree ??= this.req(`${base}/branches/board-data`).then(br => this.req(`${base}/git/trees/${br.commit.sha}`));
       const f = (await this.boardTree).tree.find(e => e.path === file);
-      return f ? await this.jsonBySha(f.sha, tag, pick) : null;
+      return f ? pick(JSON.parse(await this.blob(f.sha))) : null;
     } catch { return null; }
   }
 }
