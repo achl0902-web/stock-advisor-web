@@ -12,8 +12,8 @@ const syncEl = document.getElementById("sync");
 const ROUTES = {
   "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"], "log/levels": ["log", renderLevels], "log/etf": ["log", renderEtf],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
-  "assets": ["assets", renderAccounts], "assets/long": ["assets", renderLongTerm],
-  "accounts": ["assets", renderAccounts], "assets/levels": ["log", renderLevels], "assets/etf": ["log", renderEtf], "etf": ["log", renderEtf],
+  "assets": ["assets", renderAccounts], "assets/pension": ["assets", () => renderLongTerm("pension")], "assets/crypto": ["assets", () => renderLongTerm("crypto")],
+  "accounts": ["assets", renderAccounts], "assets/long": ["assets", () => renderLongTerm("pension")], "assets/levels": ["log", renderLevels], "assets/etf": ["log", renderEtf], "etf": ["log", renderEtf],
 };
 
 function setTab(tab) {
