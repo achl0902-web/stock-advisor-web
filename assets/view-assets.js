@@ -4,7 +4,7 @@ import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, LOG_TABS } from "./ui.js";
 
-const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코인", "long"]];
+const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/pension", "연금", "pension"], ["#/assets/crypto", "코인", "crypto"]];
 
 /* ---------- 계좌: 위에 기간(버튼·슬라이더), 투자성과와 평가액 추이, 계좌 구성 도넛, 고른 계좌의 성과·종목 구성 ---------- */
 const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
@@ -310,13 +310,15 @@ function worthNote(keys) {
   ].filter(Boolean).join(", ")}으로 그날 종가에 맞춰 다시 계산합니다. 투자손익 = 기말 − 기초 − 순 입출금, 투자수익률 = 투자손익 ÷ 투자원금(기초 + 순 입출금). 순 입출금은 거래내역의 이체·충전·출금과 주식 대체(그날 종가), 계좌 설정이 바뀐 날은 그날 종가로 잰 차이입니다.</p>`;
 }
 
-export function renderLongTerm() {
-  const keys = accountGroup(state.model.accounts, true);
+// 장기 계좌(합계에 넣지 않는 돈): kind "pension"이면 퇴직연금, "crypto"면 코인 계좌만
+export function renderLongTerm(kind = "pension") {
+  const isCrypto = k => state.model.accounts[k]?.kind === "crypto";
+  const keys = accountGroup(state.model.accounts, true).filter(k => isCrypto(k) === (kind === "crypto"));
   trends = [];
   view.innerHTML = `
-    ${subtabs(TABS, "long")}
+    ${subtabs(TABS, kind)}
     ${keys.length ? `${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(viewAt(k), colorOf(k), { live: accountView(k) })).join("")}</div>
-    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 전체 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">퇴직연금·크립토 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
+    <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 전체 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">${kind === "crypto" ? "코인" : "퇴직연금"} 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
   holds = () => keys.forEach(k => refreshPanel(view.querySelector(`.panel.account[data-key="${CSS.escape(k)}"]`), viewAt(k)));
   holdsAt = asOfIdx();
   bindRange();
