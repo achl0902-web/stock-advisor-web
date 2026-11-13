@@ -125,7 +125,7 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
     repo.json("reports/scorecard.json"),
     repo.json("config/scorecard_notes.json"),
     repo.json("config/open_orders.json"),
-    repo.board("market--snapshot.json", "board1", pickBoard),
+    repo.board("market--snapshot.json", pickBoard),
     repo.board("networth--history.json"),
   ]);
   const first = doneIds.slice(0, count);
