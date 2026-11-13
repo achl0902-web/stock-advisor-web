@@ -2,9 +2,9 @@
 import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { inline, markdown } from "./md.js";
-import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips } from "./ui.js";
+import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, LOG_TABS } from "./ui.js";
 
-const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코인", "long"], ["#/assets/levels", "관심가", "levels"], ["#/assets/etf", "ETF", "etf"]];
+const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/long", "연금·코인", "long"]];
 
 /* ---------- 계좌: 위에 기간(버튼·슬라이더), 투자성과와 평가액 추이, 계좌 구성 도넛, 고른 계좌의 성과·종목 구성 ---------- */
 const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
@@ -468,7 +468,7 @@ export function renderLevels() {
   const today = todayKST();
   const shown = keys.filter(k => levelAcct === "all" || k === levelAcct);
   view.innerHTML = `
-    ${subtabs(TABS, "levels")}
+    ${subtabs(LOG_TABS, "levels")}
     <p class="lede">가격이나 날짜에 닿으면 GitHub 이슈로 알림이 옵니다.${m.alertState?.checked_at ? ` 마지막 점검 ${dateLabel(new Date(m.alertState.checked_at))}.` : ""}</p>
     ${chips([["all", "전체"], ...keys.map(k => [k, accountShort(k)])], levelAcct, "계좌")}
     ${shown.map(k => `<section class="group"><h2>${esc(accountLabel(k))}</h2><div class="cards">${items.filter(it => it.account === k).map(it => levelCard(it, today)).join("")}</div></section>`).join("")
@@ -497,15 +497,15 @@ function parseRebalLog(md) {
 const KIND = { "신규 편입": "in", "전량 편출": "out", "비중 확대": "in", "비중 축소": "out" };
 let etfAll = false;
 export async function renderEtf() {
-  view.innerHTML = `${subtabs(TABS, "etf")}<p class="none">불러오는 중…</p>`;
+  view.innerHTML = `${subtabs(LOG_TABS, "etf")}<p class="none">불러오는 중…</p>`;
   const repo = state.repo;
   const code = repo.list("etfwatch/reports/").map(p => p.match(/(\w+)\.md$/)?.[1]).find(c => c && !c.includes("_")) || "426020";
   const [md, ev] = await Promise.all([
     repo.text(`etfwatch/reports/${code}.md`).catch(() => null),
     repo.text(`etfwatch/reports/${code}_eval.md`).catch(() => null),
   ]);
-  if (!view.querySelector('.seg [aria-current][href="#/assets/etf"]')) return; // 불러오는 사이 다른 화면으로 넘어감
-  if (!md) { view.innerHTML = `${subtabs(TABS, "etf")}<p class="none">감시 리포트가 없습니다.</p>`; return; }
+  if (!view.querySelector('.seg [aria-current][href="#/log/etf"]')) return; // 불러오는 사이 다른 화면으로 넘어감
+  if (!md) { view.innerHTML = `${subtabs(LOG_TABS, "etf")}<p class="none">감시 리포트가 없습니다.</p>`; return; }
   const title = md.match(/^# (.*)$/m)?.[1]?.replace(/ 구성 변경 이력$/, "") || code;
   const dataLine = md.match(/^- 데이터: (.*)$/m)?.[1] || "";
   const log = parseRebalLog(md);
@@ -513,7 +513,7 @@ export async function renderEtf() {
   const evPeriods = ev ? (ev.split(/^## 기간별.*$/m)[1] || "").split(/^## /m)[0] : "";
   const evSummary = ev ? (ev.match(/^- 리밸런싱 \d+회.*$/gm) || []) : [];
   view.innerHTML = `
-    ${subtabs(TABS, "etf")}
+    ${subtabs(LOG_TABS, "etf")}
     <header class="worth"><span>${esc(dataLine)}</span><b>${esc(title)}</b></header>
     <p class="lede">하루 회전율이 4%를 넘거나 큰 종목 교체가 3건 이상이면 GitHub 이슈로 알립니다.</p>
     <div class="etf">

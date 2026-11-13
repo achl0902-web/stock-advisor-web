@@ -50,9 +50,9 @@ export function nearPanel(items, pre = "") {
   const rows = nearest(items, state.model.quotes, 99).filter(r => !seen.has(r.item) && seen.add(r.item)).slice(0, 5);
   if (!rows.length) return "";
   return `<section class="panel">
-    ${head("가까운 관심가", moreLink(pre + "#/assets/levels", "전체"))}
+    ${head("가까운 관심가", moreLink(pre + "#/log/levels", "전체"))}
     <ul class="near">${rows.map(({ item, level, quote, dist, reached }) => `<li>
-      <a href="${pre}#/assets/levels">
+      <a href="${pre}#/log/levels">
         <span class="near-main"><b>${esc(item.name)}</b><small><span>${esc(levelLabel(level.msg))}</span><span>${esc(accountShort(item.account))}</span></small></span>
         <span class="near-side"><b class="fig">${money(level.price, item.currency)}</b><small class="${reached ? "tone-warn" : ""}">${reached ? "닿음, 확인 필요" : `지금 ${money(quote.price, item.currency)}에서 ${distText(dist)}`}</small></span>
         <span class="meter ${level.op === "<=" ? "meter-down" : "meter-up"}" aria-hidden="true"><i style="width:${reached ? 100 : Math.max(4, 100 - Math.abs(dist) * 5).toFixed(0)}%"></i></span>

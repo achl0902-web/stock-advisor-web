@@ -8,12 +8,12 @@ import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-
 const DEFAULT_REPO = "achl0902-web/stock-advisor";
 const syncEl = document.getElementById("sync");
 
-// 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf)도 받는다. 빈 주소는 시세판(홈)으로 넘긴다.
+// 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf·#/assets/levels·#/assets/etf)도 받는다. 빈 주소는 시세판(홈)으로 넘긴다.
 const ROUTES = {
-  "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"],
+  "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"], "log/levels": ["log", renderLevels], "log/etf": ["log", renderEtf],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
-  "assets": ["assets", renderAccounts], "assets/long": ["assets", renderLongTerm], "assets/levels": ["assets", renderLevels], "assets/etf": ["assets", renderEtf],
-  "accounts": ["assets", renderAccounts], "etf": ["assets", renderEtf],
+  "assets": ["assets", renderAccounts], "assets/long": ["assets", renderLongTerm],
+  "accounts": ["assets", renderAccounts], "assets/levels": ["log", renderLevels], "assets/etf": ["log", renderEtf], "etf": ["log", renderEtf],
 };
 
 function setTab(tab) {
