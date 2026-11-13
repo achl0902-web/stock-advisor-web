@@ -1,5 +1,5 @@
 /* 판단 일지·시세판 공용 바탕: 색·글꼴 토큰과 화면 이동 탭.
-   60 바탕 · 30 패널 · 10 형광 포인트. 기본 블랙 라임, data-palette="espresso"면 에스프레소 민트(assets/theme.js). 라이트 모드 없음.
+   60 바탕 · 30 패널 · 10 형광 포인트. 기본 블랙 라임, data-palette로 에스프레소 민트·스톰 오렌지·코발트 옐로(assets/theme.js). 라이트 모드 없음.
    색은 국내 시장 관례: 상승·매수 빨강, 하락·매도 파랑. 부호·글자와 늘 함께 쓴다. */
 
 :root {
@@ -29,6 +29,34 @@
   --font-seal: "Nanum Myeongjo", "Noto Serif KR", "Noto Serif CJK KR", "AppleMyungjo", "Batang", serif;
   --tab-h: 56px;
   --rail: 84px;
+}
+:root[data-palette="storm"] {   /* 스톰 오렌지: Storm Grey 60 · Matte Black 30 · Safety Orange 10 — 바탕이 패널보다 밝아 카드가 떠 보인다 */
+  --bg: #3a3e44;
+  --panel: #17181b;
+  --raised: #25272b;
+  --line: #2f3237;
+  --grid: #1f2124;
+  --ink: #f3f4f6;
+  --sub: #b9bec6;
+  --dim: #9aa0a8;
+  --flat: #a0a5ad;
+  --accent: #ff5f00;
+  --accent-ink: #120800;
+}
+:root[data-palette="cobalt"] {  /* 코발트 옐로: Cobalt Night 60 · Black Navy 30 · Signal Yellow 10. 바탕이 파래서 하락 파랑을 밝게 */
+  --bg: #18204a;
+  --panel: #0c1029;
+  --raised: #1a2150;
+  --line: #252d5c;
+  --grid: #141a3c;
+  --ink: #eef0ff;
+  --sub: #b2b8e0;
+  --dim: #939ac6;
+  --flat: #9aa0c9;
+  --accent: #ffd60a;
+  --accent-ink: #1a1500;
+  --down: #4f8cff;
+  --down-ink: #8db4ff;
 }
 :root[data-palette="espresso"] {
   --bg: #140f0b;
