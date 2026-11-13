@@ -3,38 +3,226 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="판단 일지">
-<title>판단 일지</title>
+<meta name="apple-mobile-web-app-title" content="시세판">
+<title>시세판</title>
 <script src="assets/theme.js"></script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Nanum+Myeongjo:wght@800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="assets/tokens.css">
-<link rel="stylesheet" href="assets/app.css">
+<style>
+/* Layout: terminal grid. Tape across the top; chart owns the left, watchlist + my price ladder on the right; heatmap spans below. Phones stack chart → tabs. */
+/* 색·글꼴·아래 탭은 assets/tokens.css(판단 일지와 공용). 여기서는 차트 라이브러리 변수만 그 토큰에 잇는다. */
+:root {
+  --fnv-text: var(--ink);
+  --fnv-text-muted: var(--sub);
+  --fnv-grid: var(--grid);
+  --fnv-bg: var(--panel);
+  --fnv-accent: var(--accent);
+  --fnv-font: var(--font-ui);
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3, p, dl, dd, ol { margin: 0; padding: 0; }
+.is-up { color: var(--up); } .is-down { color: var(--down); } .is-flat { color: var(--sub); }
+.sub { color: var(--sub); font-size: 12.5px; }
+
+body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-area-inset-top, 0px)) calc(var(--tab-h) + 36px + env(safe-area-inset-bottom, 0px)); padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 10px; }
+@media (min-width: 420px) { body { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); } }
+
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { white-space: nowrap; font-family: var(--font-fig); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
+.top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.btn { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.top-right a.btn[href="log.html"] { display: none; } /* 아래 탭이 대신한다 */
+@media (min-width: 1024px) { body { padding-bottom: 24px; } }
+.btn:disabled { opacity: .6; cursor: default; }
+.dot.is-busy { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.alert { font-size: 12.5px; padding: 8px 12px; border-radius: 9px; background: var(--accent-wash); color: var(--ink); }
+.empty-card a { color: var(--accent); }
+.fresh { display: flex; align-items: center; gap: 6px; color: var(--sub); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash), 0 0 10px var(--accent); }
+
+/* tape */
+.tape { overflow-x: auto; scrollbar-width: none; margin-inline: -4px; padding-inline: 4px; scroll-snap-type: x proximity; }
+.tape::-webkit-scrollbar { display: none; }
+.tape-track { display: flex; gap: 6px; width: max-content; }
+.tick { scroll-snap-align: start; width: 132px; display: grid; gap: 1px; padding: 8px 10px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; transition: border-color .15s; }
+.tick:hover { border-color: var(--sub); }
+.tick.is-active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tick-name { font-size: 11.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tick-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+.tick-last { font-family: var(--font-fig); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tick-chg { font-family: var(--font-fig); font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tick-spark { display: block; height: 22px; }
+
+/* main grid */
+.main { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 761px) { .main { grid-template-columns: minmax(0, 1fr) 340px; } }
+@media (min-width: 1200px) { .main { grid-template-columns: minmax(0, 1fr) 380px; } }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; scroll-margin-top: 8px; }
+.chart-host { height: min(72vh, 680px); min-height: 380px; }
+@media (max-width: 760px) { .chart-host { height: 62vh; min-height: 360px; } }
+.side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+@media (min-width: 761px) { .side { height: min(72vh, 680px); min-height: 380px; } .panel-watch { flex: 1 1 0; min-height: 0; overflow-y: auto; } .panel-ladder { flex: 1.15 1 0; min-height: 0; overflow-y: auto; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.panel-h { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.panel-watch > .panel-h { margin: 0 4px 6px; }
+
+/* segmented */
+.seg { display: inline-flex; background: var(--raised); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--sub); text-align: center; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.seg-wide { display: flex; } .seg-wide button { flex: 1; }
+
+/* watchlist */
+.w-group + .w-group { margin-top: 6px; }
+.w-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--sub); padding: 6px 4px 4px; border-bottom: 1px solid var(--line); }
+.w-head span { font-variant-numeric: tabular-nums; }
+.w-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; gap: 8px; align-items: center; padding: 8px 4px; border-radius: 8px; }
+.w-row:hover { background: var(--raised); }
+.w-row.is-active { background: var(--accent-wash); }
+.w-name { display: grid; min-width: 0; }
+.w-name b { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-name small { color: var(--sub); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-name i { font-style: normal; }
+.w-spark { height: 26px; min-width: 0; }
+.w-quote { display: grid; justify-items: end; gap: 2px; }
+.w-quote b { font-family: var(--font-fig); font-weight: 600; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.chip { font-style: normal; font-family: var(--font-fig); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 1px 6px; border-radius: 5px; min-width: 58px; text-align: right; }
+.chip.is-up { background: color-mix(in srgb, var(--up) 14%, transparent); }
+.chip.is-down { background: color-mix(in srgb, var(--down) 14%, transparent); }
+.chip.is-flat { background: var(--raised); }
+
+/* ladder — the one bold piece */
+.ladder { display: grid; gap: 10px; }
+.ladder-top { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.ladder-top > div:first-child { min-width: 0; }
+.ladder-top .panel-h { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ladder-price { text-align: right; display: grid; }
+.ladder-price b { font-family: var(--font-fig); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.ladder-price span { font-family: var(--font-fig); font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 9px; }
+.pos > div { padding: 7px 9px; display: grid; gap: 1px; }
+.pos > div + div { border-left: 1px solid var(--line); }
+.pos dt { font-size: 11px; color: var(--sub); }
+.pos dd { font-family: var(--font-fig); font-weight: 600; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.rail { position: relative; margin: 4px 0 2px; }
+.rail-bar { position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--line) 0 6px, transparent 6px 10px); }
+.rung { position: absolute; left: 0; right: 0; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto 62px; align-items: center; gap: 8px; transform: translateY(-50%); font-size: 12.5px; }
+.rung-tick { width: 16px; height: 2px; background: var(--sub); }
+.rung-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sub); }
+.rung-price { font-family: var(--font-fig); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rung-dist { font-family: var(--font-fig); font-variant-numeric: tabular-nums; color: var(--sub); text-align: right; font-size: 12px; }
+.rung-now { z-index: 2; }
+.rung-now .rung-tick { height: 14px; width: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-wash); margin-left: 1px; }
+.rung-now .rung-label { color: var(--ink); font-weight: 700; }
+.rung-now .rung-price { background: var(--accent); color: var(--accent-ink); padding: 1px 7px; border-radius: 5px; }
+.rung-avg .rung-tick { background: var(--ink); height: 3px; }
+.rung-avg .rung-label { color: var(--ink); font-weight: 600; }
+.rung-line .rung-tick { background: var(--accent); }
+.rung-line .rung-label { color: var(--ink); }
+.rung-hi .rung-tick, .rung-lo .rung-tick { background: var(--line); }
+.goal { display: grid; gap: 6px; }
+.goal-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--sub); }
+.goal-top b { font-family: var(--font-fig); font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.goal-top small { color: var(--sub); font-size: 13px; }
+.goal-bar { height: 8px; border-radius: 4px; background: var(--raised); overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+
+/* heatmap */
+.heat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 10px; min-width: 0; }
+.heat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.heat-head .sub { margin-left: auto; }
+.heat-body { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 961px) { .heat-body { grid-template-columns: minmax(0, 1fr) 260px; } }
+.heat-body > div { min-width: 0; }
+.sectors { list-style: none; display: grid; gap: 2px; align-content: start; }
+.sectors li { display: grid; grid-template-columns: 92px minmax(0, 1fr) 62px; gap: 8px; align-items: center; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--grid); }
+.sectors b { font-family: var(--font-fig); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.sec-bar { height: 6px; background: var(--raised); border-radius: 3px; overflow: hidden; }
+.sec-bar i { display: block; height: 100%; border-radius: 3px; }
+.sec-bar i.is-up { background: var(--up); } .sec-bar i.is-down { background: var(--down); } .sec-bar i.is-flat { background: var(--sub); }
+
+.foot { color: var(--sub); font-size: 11.5px; padding-inline: 2px; }
+
+/* 홈 패널: #root·.shell을 풀어 body가 줄을 세우고, 홈 패널(#home, assets/home.js)을 시세 띠 바로 아래에 끼운다 */
+#root, .shell { display: contents; }
+.shell > * { order: 5; }
+.shell > .top { order: 0; } .shell > .alert { order: 1; } .shell > .tape { order: 2; } #home { order: 3; }
+#home { display: grid; gap: 10px; align-items: start; }
+#home:empty { display: none; }
+@media (min-width: 761px) { #home { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+#home ul { list-style: none; margin: 0; padding: 0; }
+#home a { color: inherit; }
+#home .panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+#home .panel-h h2 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+#home .hint { color: var(--dim); font-size: 12.5px; }
+#home .fig { font-family: var(--font-fig); font-variant-numeric: tabular-nums; }
+#home .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#home .more { display: inline-flex; align-items: center; font-size: 13px; color: var(--sub); text-decoration: none; white-space: nowrap; }
+#home .ic { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#home .tone-warn { color: var(--warn); }
+#home .st-state { font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
+#home .strategy.is-out { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--down) 50%, transparent); }
+#home .axes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+#home .axes li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--raised); font-size: 12.5px; color: var(--dim); }
+#home .axes i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--dim); }
+#home .axes .on { color: var(--ink); font-weight: 600; }
+#home .axes .on i { background: var(--down); box-shadow: none; }
+#home .near li + li { border-top: 1px solid var(--line); }
+#home .near a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 10px 0; text-decoration: none; }
+#home .near li:first-child a { padding-top: 0; }
+#home .near-main, #home .near-side { display: grid; gap: 1px; min-width: 0; }
+#home .near-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#home .near small { display: flex; gap: 6px; font-size: 12px; color: var(--dim); }
+#home .near-side { justify-items: end; text-align: right; }
+#home .near-side b { font-family: var(--font-fig); font-size: 15px; }
+#home .meter { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--raised); overflow: hidden; }
+#home .meter i { display: block; height: 100%; border-radius: 4px; background: var(--down); }
+#home .meter-up i { background: var(--up); margin-left: auto; }
+#home .dates li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
+#home .dates li:first-child { border-top: 0; padding-top: 0; }
+#home .dday { align-self: start; display: grid; place-items: center; height: 26px; border-radius: 8px; background: var(--raised); font-size: 12px; font-weight: 600; white-space: nowrap; }
+#home .dates .due .dday { background: var(--accent-wash); color: var(--accent); }
+#home .dates .done { opacity: .6; }
+#home .dates-main { display: grid; gap: 2px; min-width: 0; }
+#home .dates-main b { font-size: 13.5px; font-weight: 600; }
+#home .dates-main a { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+#home .dates-main small { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--sub); font-variant-numeric: tabular-nums; }
+#home .tag { padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--raised); color: var(--sub); }
+#home .tag-fomc, #home .tag-cpi, #home .tag-jobs { background: var(--warn-wash); color: var(--warn); }
+#home .tag-earnings { background: var(--accent-wash); color: var(--accent); }
+#home .tag-disclosure, #home .tag-etf { background: var(--down-wash); color: var(--down-ink); }
+#home .past { margin-top: 10px; }
+#home .past summary { cursor: pointer; font-size: 12.5px; color: var(--sub); padding: 4px 0; }
+#home .past .dates { margin-top: 8px; }
+
+.empty { min-height: 70vh; display: grid; place-items: center; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.empty-card { max-width: 32ch; display: grid; gap: 8px; text-align: left; color: var(--sub); }
+.empty-card .brand { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+</style>
 </head>
 <body>
-<header class="top">
-  <div class="top-inner">
-    <a class="brand" href="sise.html">판단 일지</a>
-    <div class="top-tools">
-      <span class="sync" id="sync" aria-live="polite"></span>
-      <span data-theme-switch></span>
-      <button class="icon-btn" id="refresh" type="button" aria-label="새로 불러오기"></button>
-      <a class="icon-btn" id="settings-link" href="#/settings" aria-label="연결 설정"></a>
-    </div>
-  </div>
-</header>
-<main id="view" class="wrap"></main>
-<nav id="tabbar" class="tabbar" aria-label="화면" data-current="log"></nav>
+<section id="home" aria-label="오늘 볼 것"></section>
+<div id="root"></div>
+<nav id="tabbar" class="tabbar" aria-label="화면" data-current="sise"></nav>
 <script src="assets/nav.js"></script>
-<script type="module" src="assets/app.js"></script>
+<script src="assets/sise.js"></script>
+<script type="module" src="assets/home.js"></script>
 </body>
 </html>

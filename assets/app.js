@@ -1,5 +1,6 @@
 // 판단 일지: 연결·불러오기·화면 이동. 화면은 view-*.js, 데이터 모델은 store.js, 공통 조각은 ui.js.
 import { Repo, ApiError, settings, fetchStrategyStatus } from "./data.js";
+import "./update.js";
 import { state, loadModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
@@ -8,7 +9,7 @@ import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-
 const DEFAULT_REPO = "achl0902-web/stock-advisor";
 const syncEl = document.getElementById("sync");
 
-// 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf·#/assets/levels·#/assets/etf)도 받는다. 빈 주소는 시세판(홈)으로 넘긴다.
+// 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf·#/assets/levels·#/assets/etf)도 받는다. 빈 주소는 홈(index.html)으로 넘긴다.
 const ROUTES = {
   "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"], "log/levels": ["log", renderLevels], "log/etf": ["log", renderEtf],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
@@ -30,7 +31,7 @@ if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우�
 
 function route({ keep = false } = {}) {
   let path = location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
-  if (path === "") { location.replace("sise.html" + location.search); return; }
+  if (path === "") { location.replace("./" + location.search); return; }
   if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
   if (lastPath != null) scrolls.set(lastPath, scrollY);
   const y = keep ? scrollY : (lastPath?.startsWith("run/") && scrolls.get(path)) || 0;
@@ -138,26 +139,6 @@ async function boot() {
 }
 
 /* ---------- 새 버전 확인 ---------- */
-// GitHub Pages는 파일을 10분까지 캐시하게 해서, 배포 직후 열면 예전 화면 파일이 섞여 뜬다.
-// 열 때마다 이 페이지가 쓴 파일(html·js·css)을 서버에 다시 물어보고, 하나라도 바뀌었으면 새 파일로 한 번 다시 연다.
-async function checkUpdate() {
-  try {
-    const own = [location.pathname, ...performance.getEntriesByType("resource").map(e => e.name)
-      .filter(u => u.startsWith(location.origin) && /\.(js|css)(\?|$)/.test(u))];
-    const files = [...new Set(own)];
-    const changed = (await Promise.all(files.map(async u => {
-      const [was, now] = await Promise.all([fetch(u, { cache: "force-cache" }), fetch(u, { cache: "no-cache" })]);
-      return was.ok && now.ok && (await was.text()) !== (await now.text());
-    }))).some(Boolean);
-    if (!changed) return;
-    const last = +sessionStorage.getItem("sa:reloaded") || 0;
-    if (Date.now() - last < 60_000) return; // 계속 다시 여는 일이 없게
-    sessionStorage.setItem("sa:reloaded", String(Date.now()));
-    await Promise.all(files.map(u => fetch(u, { cache: "reload" }))); // 캐시를 새 파일로 채운 뒤
-    location.reload();
-  } catch { /* 확인 못 하면 다음에 */ }
-}
-addEventListener("load", () => setTimeout(checkUpdate, 1500));
 
 window.addEventListener("hashchange", () => route());
 document.getElementById("refresh").innerHTML = icon("refresh");
@@ -165,7 +146,6 @@ document.getElementById("refresh").addEventListener("click", boot);
 document.getElementById("settings-link").innerHTML = icon("gear");
 document.addEventListener("visibilitychange", () => {
   // 오래 켜 두었다 다시 열면 새 커밋을 확인
-  if (document.visibilityState === "visible") checkUpdate(); // 다시 켠 사이 새로 배포됐을 수 있다
   if (document.visibilityState === "visible" && state.model && Date.now() - state.loadedAt > 10 * 60 * 1000) boot();
 });
 boot();

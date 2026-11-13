@@ -2,6 +2,7 @@
 // 판단 기록은 읽지 않는다(파일 몇 개만 바로 받는다). 토큰이 없으면 아무것도 그리지 않는다(시세판이 연결 안내를 띄운다).
 // 가족 보기: 바이오·퇴직연금 관심가와 공시·ETF 일정은 뺀다.
 import { Repo, settings, fetchStrategyStatus } from "./data.js";
+import "./update.js";
 import { state, levelsModel, levelItems, pickBoard, todayKST } from "./store.js";
 import { nearPanel, strategyPanel } from "./view-home.js";
 import { esc, head, dday } from "./ui.js";
@@ -52,7 +53,7 @@ async function main() {
   ]);
   Object.assign(state, { model: levelsModel({ accounts, alerts, alertState, board }), strategy });
   const near = levelItems().filter(it => !(FAMILY && ["bio", "pension"].includes(it.account)));
-  el.innerHTML = `${strategyPanel()}${nearPanel(near, "./")}${eventsPanel(events)}`;
+  el.innerHTML = `${strategyPanel()}${nearPanel(near, "log.html")}${eventsPanel(events)}`;
 }
 
 main().catch(e => { if (el) el.innerHTML = `<p class="hint">홈 패널을 불러오지 못했습니다: ${esc(e?.message || String(e))}</p>`; });
