@@ -23,6 +23,7 @@
     ["log", "기록", pre + "#/log", '<path d="M8.5 7h10.5M8.5 12h10.5M8.5 17h10.5"/><path d="M4.5 7h.01M4.5 12h.01M4.5 17h.01" stroke-width="2.4"/>'],
   ];
   if (window.saFamily) TABS = TABS.filter(function (t) { return t[0] === "assets" || t[0] === "sise"; });
+  el.style.setProperty("--tabs", TABS.length);
   el.innerHTML = TABS.map(function (t) {
     return '<a href="' + t[2] + '" data-tab="' + t[0] + '"' + (t[0] === here ? ' aria-current="page"' : "") +
       '><svg viewBox="0 0 24 24" aria-hidden="true">' + t[3] + "</svg><span>" + t[1] + "</span></a>";

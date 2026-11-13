@@ -2,9 +2,8 @@
 import { DEC, ACCOUNT_ORDER, state, shownRuns, moreLeft, loadMoreRuns, ensureRun, accountLabel, accountShort, scoreSummary, verdict, MORE_PAGE } from "./store.js";
 import { markdown } from "./md.js";
 import { logTop } from "./view-home.js";
-import { view, esc, money, nf, pct, pp, tone, dateLabel, krwShort, qtyText, seal, mark, confidence, ticket, runRow, head, subtabs, chips, bindChips, note, icon } from "./ui.js";
+import { view, esc, money, nf, pct, pp, tone, dateLabel, krwShort, qtyText, seal, mark, confidence, ticket, runRow, head, subtabs, chips, bindChips, note, icon, LOG_TABS as TABS } from "./ui.js";
 
-const TABS = [["#/log", "판단", "runs"], ["#/log/score", "성적", "score"]];
 const PREMORTEM = { skip: "생략", pass: "통과", revise: "계획 수정", block: "중단" };
 
 /* ---------- 판단 목록 ---------- */
