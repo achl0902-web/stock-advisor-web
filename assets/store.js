@@ -184,9 +184,8 @@ export async function loadAssetModel(repo) {
     repo.board("networth--history.json"),
   ]);
   const base = levelsModel({ accounts, alerts, alertState, board });
-  // 시세가 빠진 날에는 기존의 '최근 판단 시점 평가액' 대체 표시를 유지한다.
-  // 이때만 판단 기록을 읽으며, 정상 수집 시에는 요청하지 않는다.
-  if (!assetQuotesComplete(accounts, base.quotes, base.fx)) return loadModel(repo);
+  // 일부 시세가 빠졌다고 수천 개 판단 파일 트리와 최근 20건을 내려받지 않는다.
+  // 계좌의 마지막 평가 이력(worth.v)을 대체 총액으로 쓰며, 없다면 미확인으로 표시한다.
   return {
     ...base,
     head, worth, light: true,
@@ -238,23 +237,29 @@ export function valueAccount(a, quotes, fx, snapshot) {
     const k = h.currency === "USD" ? fx : 1;
     return {
       h, q,
-      value: q?.price != null && k ? h.qty * q.price * k : null,
+      value: !h.qty ? 0 : q?.price != null && k ? h.qty * q.price * k : null,
       pl: q?.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null,
     };
   });
-  const live = rows.every(r => r.value != null) && (!a.cash_usd || !!fx);
-  const cash = (a.cash_krw || 0) + (a.cash_usd || 0) * (fx || 0);
+  const cashMissingFx = !!a.cash_usd && !fx;
+  const live = rows.every(r => r.value != null) && !cashMissingFx;
+  // 환율이 없는 달러 현금은 원화 0원처럼 합산하지 않는다.
+  const cash = cashMissingFx ? null : (a.cash_krw || 0) + (a.cash_usd || 0) * (fx || 0);
   const total = live ? rows.reduce((s, r) => s + r.value, 0) + cash : snapshot?.total_krw ?? null;
   for (const r of rows) {
     r.weight = live && total ? r.value / total * 100 : snapshot?.holdings?.find(x => x.symbol === r.h.symbol)?.weight_pct ?? null;
   }
-  return { rows, cash, total, live, cashPct: total ? cash / total * 100 : null };
+  return { rows, cash, total, live, cashMissingFx, cashPct: cash != null && total ? cash / total * 100 : null };
 }
 
 export function accountView(key) {
   const m = state.model, a = m.accounts[key];
   const snap = m.runs.find(r => r.accountKey === key && r.brief?.portfolio?.holdings?.length);
-  return { key, a, snap, ...valueAccount(a, m.quotes, m.fx, snap?.brief.portfolio) };
+  const history = m.worth?.v?.[key];
+  const last = history?.findLastIndex(v => Number.isFinite(v)) ?? -1;
+  const fallback = last >= 0 ? { total_krw: history[last] } : snap?.brief.portfolio;
+  const value = valueAccount(a, m.quotes, m.fx, fallback);
+  return { key, a, snap, ...value, fallbackWorthDate: !value.live && last >= 0 ? m.worth.t[last] : null };
 }
 
 // 지난 어느 날(worth.t의 i번째)의 계좌 구성: networth의 pos(바뀐 날마다 보유 수량·현금)와 px(그날 종가)로 다시 잰다.
@@ -281,10 +286,11 @@ export function viewOn(key, i) {
     const avg = p[4]?.[s] ?? null; // 그날 평단(거래내역 이동평균, 설정 이력의 평단, 받기만 한 코인은 받은 날 종가)
     return { h: { ...conf, symbol: s, qty, currency, avg_price: avg }, q: px != null ? { price: px } : null, value: px != null && k ? qty * px * k : null, pl: px != null && avg ? (px / avg - 1) * 100 : null };
   });
-  const cash = p ? p[2] + (p[3] ? p[3] * (fx || 0) : 0) : 0;
-  const total = !p ? null : out.every(r => r.value != null) ? cash + out.reduce((t, r) => t + r.value, 0) : (w.v?.[key]?.[i] ?? null);
+  const cashMissingFx = !!p?.[3] && !fx;
+  const cash = !p ? 0 : cashMissingFx ? null : p[2] + (p[3] ? p[3] * fx : 0);
+  const total = !p ? null : cash != null && out.every(r => r.value != null) ? cash + out.reduce((t, r) => t + r.value, 0) : (w.v?.[key]?.[i] ?? null);
   out.forEach(r => { r.weight = total && r.value != null ? r.value / total * 100 : null; });
-  return { key, a: { ...cfg, cash_krw: p?.[2] || 0, cash_usd: p?.[3] || 0 }, rows: out, cash, cashPct: total ? cash / total * 100 : null, total, live: false, snap: null, on: w.t[i], fx };
+  return { key, a: { ...cfg, cash_krw: p?.[2] || 0, cash_usd: p?.[3] || 0 }, rows: out, cash, cashMissingFx, cashPct: cash != null && total ? cash / total * 100 : null, total, live: false, snap: null, on: w.t[i], fx };
 }
 
 /* ---------- 평가액 추이 (board-data networth--history.json, 시세판을 열 때마다 다시 계산) ----------

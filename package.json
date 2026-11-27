@@ -5,7 +5,8 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "build:chart": "node scripts/build-chart.mjs",
-    "check": "npm run build:chart && node --check assets/app.js && node --check assets/home.js && node --check assets/sise.js && node --test test/*.test.mjs"
+    "check:syntax": "node scripts/check-js.mjs",
+    "check": "npm run build:chart && npm run check:syntax && node --test test/*.test.mjs"
   },
   "dependencies": {
     "@funnest/charts-react": "0.6.31",

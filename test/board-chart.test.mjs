@@ -34,6 +34,21 @@ test("새 시간봉 파일이 없거나 다른 종목이면 기존 bars.h로 되
   assert.equal((await feed.bars(sym, "60")).length, 2);
 });
 
+test("같은 주기의 변환 봉을 재사용하고 새 수집 시에는 갱신한다", async () => {
+  let reads = 0;
+  const feed = new BoardDatafeed(async () => {
+    reads++;
+    return { d: rows(days(4)) };
+  });
+  const first = await feed.bars(sym, "1W");
+  const second = await feed.bars(sym, "1W");
+  assert.equal(first, second);
+  assert.equal(reads, 1);
+  feed.update({ heat_us: [], heat_kr: [], macro: [], watch: [] });
+  assert.notEqual(await feed.bars(sym, "1W"), first);
+  assert.equal(reads, 2);
+});
+
 test("큰 차트는 countBack 단위로 구간 탐색하고 마지막 페이지를 구분한다", async () => {
   const feed = new BoardDatafeed(async () => ({ sym: "QLD", d: rows(days(1000)) }));
   feed.registry.set("QLD", sym);

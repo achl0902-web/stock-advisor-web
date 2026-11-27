@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assetQuotesComplete, loadAssetModel, pickBoard, quoteStatus, valueAccount } from "../assets/store.js";
+import { assetQuotesComplete, accountView, loadAssetModel, pickBoard, quoteStatus, state, valueAccount } from "../assets/store.js";
 
 test("loadAssetModel: 판단 기록 트리/실행 파일 없이 계좌와 시세만 읽는다", async () => {
   const calls = [];
@@ -39,4 +39,39 @@ test("assetQuotesComplete: 누락된 가격·환율이 있으면 예전 분석�
   assert.equal(assetQuotesComplete(accounts, { QLD: { price: 70 } }, 1400), true);
   assert.equal(assetQuotesComplete(accounts, {}, 1400), false);
   assert.equal(assetQuotesComplete(accounts, { QLD: { price: 70 } }, null), false);
+});
+
+test("자산 시세가 누락돼도 전체 판단 트리를 다시 읽지 않고 마지막 평가 이력을 활용한다", async () => {
+  const calls = [];
+  const accounts = { main: { label: "주 계좌", cash_usd: 100, holdings: [
+    { symbol: "QLD", qty: 2, currency: "USD", avg_price: 60 },
+  ] } };
+  const worth = { t: ["2026-11-25", "2026-11-26"], v: { main: [500000, 520000] } };
+  const repo = {
+    headOnly: async () => ({ sha: "test", date: "2026-11-27" }),
+    raw: async path => path === "config/accounts.json" ? accounts : null,
+    board: async name => name === "networth--history.json" ? worth : null,
+    index: async () => { calls.push("heavy index"); throw Error("전체 트리를 읽어서는 안 됩니다"); },
+  };
+  const model = await loadAssetModel(repo);
+  assert.equal(model.light, true);
+  assert.deepEqual(calls, []);
+  state.model = model;
+  try {
+    const result = accountView("main");
+    assert.equal(result.total, 520000);
+    assert.equal(result.fallbackWorthDate, "2026-11-26");
+    assert.equal(result.cash, null);
+    assert.equal(result.cashPct, null);
+    assert.equal(result.live, false);
+  } finally { state.model = null; }
+});
+
+test("달러 현금 환산에 필요한 환율이 없으면 부분 합계를 전체 현금으로 표시하지 않는다", () => {
+  const a = { cash_krw: 10000, cash_usd: 100, holdings: [] };
+  const result = valueAccount(a, {}, null, { total_krw: 150000 });
+  assert.equal(result.total, 150000);
+  assert.equal(result.cash, null);
+  assert.equal(result.cashMissingFx, true);
+  assert.equal(result.cashPct, null);
 });

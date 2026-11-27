@@ -187,13 +187,14 @@ export class BoardDatafeed {
   loader;
   registry = new Map();
   docs = new Map();
+  candles = new Map();
   subs = new Set();
   quoteSubs = new Set();
   constructor(t) {
     this.loader = t;
   }
   update(t) {
-    ((this.registry = buildRegistry(t)), this.docs.clear());
+    ((this.registry = buildRegistry(t)), this.docs.clear(), this.candles.clear());
     for (let e of this.subs) {
       let n = this.registry.get(e.e.sym);
       if (!n) continue;
@@ -216,6 +217,18 @@ export class BoardDatafeed {
     return this.docs.get(cacheKey);
   }
   async bars(symbol, resolution) {
+    // 좌우 이동·확대할 때 동일 종목·주기를 반복 요청하므로 변환한 봉까지 캐시한다.
+    const key = `${symbol.col}/${symbol.doc}/${symbol.sym}/${resolution}`;
+    if (!this.candles.has(key)) {
+      const pending = this.readBars(symbol, resolution).catch(error => {
+        if (this.candles.get(key) === pending) this.candles.delete(key);
+        throw error;
+      });
+      this.candles.set(key, pending);
+    }
+    return this.candles.get(key);
+  }
+  async readBars(symbol, resolution) {
     const timezone = exchangeTimezone(symbol);
     if (resolution === "60" && symbol.col === "bars") {
       // 별도 시간봉을 우선 조회하면 10년치 일봉 파일을 다운로드하지 않아도 된다.

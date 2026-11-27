@@ -77,7 +77,7 @@
   --line-strong: #81725f;
 }
 
-/* ---------- 화면 이동 탭: 휴대폰은 가운데 떠 있는 알약(탭 수만큼 폭, nav.js가 --tabs를 넣는다), 넓은 화면은 왼쪽 레일 ---------- */
+/* ---------- 화면 이동 탭: 휴대폰은 화면 하단 도크, 넓은 화면은 왼쪽 레일 ---------- */
 .tabbar {
   position: fixed; z-index: 30;
   left: 50%; translate: -50% 0;
@@ -102,6 +102,19 @@
 .tabbar a[aria-current="page"] { color: var(--accent); background: var(--accent-wash); }
 .tabbar a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (hover: hover) { .tabbar a:hover { color: var(--ink); } .tabbar a[aria-current="page"]:hover { color: var(--accent); } }
+
+/* 휴대폰에서는 도넛·차트 위를 가로지르는 떠 있는 알약 대신 하단 도크로 분리한다. */
+@media (max-width: 1023px) {
+  .tabbar {
+    left: 0; bottom: 0; translate: none; width: 100%;
+    height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+    padding: 6px max(12px, env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-right, 0px));
+    border-radius: 16px 16px 0 0; background: var(--panel);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    box-shadow: inset 0 1px 0 var(--line), 0 -8px 24px rgba(0, 0, 0, .35);
+  }
+  .tabbar a { border-radius: 12px; }
+}
 
 @media (min-width: 1024px) {
   body { padding-left: var(--rail); }

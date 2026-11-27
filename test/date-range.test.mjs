@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { closestDateIndex, normalizeDateRange } from "../assets/date-range.js";
+import { closestDateIndex, normalizeDateRange, shiftDateIndexByDays } from "../assets/date-range.js";
 
 test("closestDateIndex: 기록 밖 날짜는 경계로, 비거래일은 가까운 기록으로", () => {
   const dates = ["2026-11-20", "2026-11-23", "2026-11-25", "2026-11-27"];
@@ -31,4 +31,13 @@ test("normalizeDateRange: 1,111일 이력에서도 직접 날짜 선택 결과�
   const w = normalizeDateRange(dates, "2025-06-01", "2026-06-30");
   assert.equal(w.from, "2025-06-01");
   assert.equal(w.to, "2026-06-30");
+});
+
+test("±7일은 기록 7개가 아닌 달력 7일로 이동한다", () => {
+  const dates = ["2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19",
+    "2026-11-20", "2026-11-23", "2026-11-24", "2026-11-25"];
+  assert.equal(dates[shiftDateIndexByDays(dates, 0, 7)], "2026-11-23");
+  assert.equal(dates[shiftDateIndexByDays(dates, 7, -7)], "2026-11-18");
+  assert.equal(shiftDateIndexByDays(dates, 0, -7), 0);
+  assert.equal(shiftDateIndexByDays(dates, 7, 7), 7);
 });

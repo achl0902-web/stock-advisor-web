@@ -21,3 +21,12 @@ test("모바일 차트 전체 화면 단추와 가로 모드 크기 보정 스�
   assert.match(html, /#root \.fnc-btn-fullscreen\s*\{[^}]*44px/);
   assert.match(html, /orientation:\s*landscape/);
 });
+
+test("모바일 하단 내비게이션은 그래프 위의 떠 있는 알약이 아닌 도크이며 전역 resize를 덮어쓰지 않는다", () => {
+  const css = readFileSync(new URL("../assets/tokens.css", import.meta.url), "utf8");
+  const assets = readFileSync(new URL("../assets/view-assets.js", import.meta.url), "utf8");
+  assert.match(css, /@media \(max-width: 1023px\)[\s\S]*?\.tabbar\s*\{[^}]*bottom:\s*0;[^}]*width:\s*100%/);
+  assert.match(css, /\.tabbar a\s*\{ border-radius: 12px; \}/);
+  assert.doesNotMatch(assets, /\bonresize\s*=/);
+  assert.match(assets, /addEventListener\("resize", floatResizeHandler/);
+});

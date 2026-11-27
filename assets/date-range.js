@@ -24,3 +24,11 @@ export function normalizeDateRange(dates, from, to, changed = "to") {
   }
   return { start, end, from: dates[start], to: dates[end] };
 }
+
+// 거래일·수집 누락일을 건너뛰어도 '7일'은 기록 7개가 아닌 달력상 7일이다.
+export function shiftDateIndexByDays(dates, index, days) {
+  if (!dates.length || index < 0 || index >= dates.length) return -1;
+  const [year, month, day] = dates[index].split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+  return closestDateIndex(dates, date);
+}
