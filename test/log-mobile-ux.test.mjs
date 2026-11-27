@@ -59,6 +59,11 @@ test("P4 기록: 입력 포커스를 유지하며 불러온 판단만 검색하�
     assert.match(root.querySelector("#run-results").textContent, /이전 판단을 더 불러오세요/);
     assert.ok(root.querySelector("#more-runs"), "아직 불러오지 않은 판단을 확인할 경로는 유지한다");
 
+    renderRuns("QLD");
+    assert.equal(root.querySelector("#run-search").value, "QLD", "오늘의 주문에서 연결된 티커가 검색창에 입력된다");
+    assert.equal(root.querySelectorAll(".rr").length, 1, "연결된 티커에 해당하는 판단만 보여 준다");
+    assert.match(root.querySelector(".rr").textContent, /나스닥 레버리지/);
+
     let finishFirst;
     state.repo = {
       text: path => path.includes("r1") ? new Promise(resolve => { finishFirst = resolve; }) : Promise.resolve("두번째 판단의 근거"),

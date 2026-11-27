@@ -66,7 +66,10 @@ function route({ keep = false } = {}) {
   lastPath = path;
   if (path === "settings") { setTab(null); document.body.classList.add("narrow"); renderSetup(); scrollTo(0, 0); return; }
   if (!state.model) return;
-  const [tab, render, width] = path.startsWith("run/") ? ["log", () => renderRun(decodeURIComponent(path.slice(4)))] : ROUTES[path] || ROUTES.log;
+  const [tab, render, width] = path.startsWith("run/") ? ["log", () => renderRun(decodeURIComponent(path.slice(4)))]
+    : path.startsWith("log/search/") ? ["log", () => renderRuns(decodeURIComponent(path.slice("log/search/".length))), "narrow"]
+    : path.startsWith("market/levels/") ? ["sise", () => renderLevels(decodeURIComponent(path.slice("market/levels/".length)))]
+    : ROUTES[path] || ROUTES.log;
   const draw = () => {
     setTab(tab);
     document.body.classList.toggle("narrow", !!width); // 목록 화면은 넓은 모니터에서도 읽기 좋은 폭으로
@@ -87,6 +90,7 @@ function renderSetup(message) {
       ${sealChars(["판", "단", "일", "지"], "up", "판단 일지")}
       <h1>저장소 연결</h1>
       <p class="lede">이 페이지에는 데이터가 없습니다. 비공개 <b>stock-advisor</b> 저장소를 이 기기에서만 읽어 와 보여 줍니다. 토큰은 이 브라우저에만 저장되고 GitHub 말고는 어디로도 보내지 않습니다.</p>
+      ${FAMILY ? note("공유 보기 주소는 데이터 열람 권한을 주지 않습니다. 다른 기기에는 별도 읽기 권한이 필요하며, 본인 토큰을 타인에게 전달하지 마세요.", "soft") : ""}
       ${message ? note(message) : ""}
       <form id="setup-form" autocomplete="off">
         <label>저장소<input name="repo" value="${esc(cur ? `${cur.owner}/${cur.repo}` : DEFAULT_REPO)}" spellcheck="false" autocapitalize="off"></label>
@@ -157,8 +161,8 @@ async function boot() {
       if (todayOnly) model.summaryOnly = true;
       Object.assign(state, { model, strategy, loadedAt: Date.now() });
       const at = new Date(model.head.date);
-      setSync(`${ago(at)} 갱신`);
-      syncEl.title = `${model.head.message} (${at.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })})`;
+      setSync(`${ago(at)} 기록 갱신`);
+      syncEl.title = `저장소 기록 갱신(시세 수집과 별도): ${model.head.message} (${at.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })})`;
       if (first || lastPath !== "settings") route({ keep: !first });
     } catch (e) {
       setSync("연결 실패", "off");

@@ -37,7 +37,8 @@ function renderRunResults() {
   view.querySelector("#run-search-summary").textContent = `전체 ${state.model.doneIds.length}건 · 불러온 ${shownRuns().length}건 중 ${matches.length}건 표시${moreLeft() ? " · 이전 판단은 아래에서 추가로 불러올 수 있습니다." : ""}`;
 }
 
-export function renderRuns() {
+export function renderRuns(initialQuery = null) {
+  if (initialQuery != null) query = String(initialQuery);
   const m = state.model;
   const done = shownRuns();
   const keys = ACCOUNT_ORDER.filter(k => done.some(r => r.accountKey === k));

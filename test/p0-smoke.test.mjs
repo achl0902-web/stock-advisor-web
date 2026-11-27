@@ -17,7 +17,7 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
   try {
     const { state } = await import("../assets/store.js");
     const { renderToday } = await import("../assets/view-today.js");
-    const { renderAccounts } = await import("../assets/view-assets.js");
+    const { renderAccounts, renderLevels } = await import("../assets/view-assets.js");
     const t = ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27"];
     const accounts = Object.fromEntries(["main", "bio", "pension", "crypto"].map((k, i) => [k, {
       label: { main: "주 계좌", bio: "바이오 계좌", pension: "퇴직연금 DC", crypto: "비트코인" }[k],
@@ -47,8 +47,13 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     const from = root.querySelector('.range .slider input[data-end="from"]');
     from.value = "2";
     from.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
-    assert.equal(root.querySelector('[data-label="from"]').textContent, "11/26");
+    assert.equal(root.querySelector('[data-label="from"]').textContent, "26.11.26");
     assert.equal(root.querySelector('.range .slider input[data-end="from"]').getAttribute("aria-valuetext"), "11/26", "스크린리더에 기록 인덱스 대신 날짜 전달");
+    assert.equal(root.querySelector('.range-steps').closest('.range-fine'), null, "7일씩 조정 버튼은 정밀 날짜를 펼치지 않아도 접근할 수 있다");
+    assert.equal(root.querySelectorAll('.range-step-pair button').length, 4);
+    assert.ok(root.querySelector('.account-selection'), "함께 선택한 계좌를 성과 카드 제목 아래에서 확인할 수 있다");
+    assert.match(root.querySelector('.line svg').getAttribute('viewBox'), /0 0 600 240/);
+    assert.ok(root.querySelector('.perf-baseline'), "수익률 기초일 계산 기준을 표시한다");
     assert.equal(root.querySelector('[data-period="all"]').getAttribute("aria-pressed"), "false");
     assert.notEqual(root.querySelector(".account .perf b").textContent, pnlBefore, "슬라이더 움직임이 기간 투자손익에 반영됨");
     assert.match(root.querySelector(".account").textContent, /투자수익률/);
@@ -63,6 +68,7 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     assert.equal(root.querySelectorAll(".accounts > .account").length, 1);
     assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
     assert.ok(root.querySelector(".account .donut"), "보유종목 구성 도넛은 유지한다");
+    assert.equal(root.querySelector('.account .donut').getAttribute('style'), '--size:180px');
     assert.match(root.querySelector(".account").textContent, /투자수익률/);
     root.querySelector('[data-compare-key="crypto"]').click();
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
@@ -82,6 +88,19 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     assert.equal(root.querySelector("[data-comp]"), null, "가족 보기에도 중복 구성을 추가하지 않는다");
     assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
+
+    dom.window.saFamily = false;
+    state.model.alerts.items = [{ code: "main", name: "주 종목", account: "주 계좌", market: "KR", alerts: [
+      { id: "p5-main", op: ">=", price: 105, msg: "목표가: 확인" },
+    ] }];
+    state.model.openOrders = [{ code: "bio", name: "바이오 종목", side: "buy", account: "바이오 계좌", limit: 120, expires: "2026-12-01" }];
+    renderToday();
+    assert.ok(root.querySelector('a[href="#/market/levels/main"]'), "오늘의 관심가에서 특정 종목 관심가로 바로 이동한다");
+    assert.ok(root.querySelector('a[href="#/log/search/bio"]'), "오늘의 미체결 주문에서 해당 종목 판단 검색으로 이동한다");
+    renderLevels("main");
+    assert.ok(root.querySelector('a[href="#/market/levels"]'), "한 종목 관심가에서 전체 목록으로 돌아갈 수 있다");
+    assert.match(root.textContent, /주 종목/);
+    assert.doesNotMatch(root.textContent, /바이오 종목/);
   } finally {
     for (const [k, v] of Object.entries(old)) {
       if (v === undefined) delete globalThis[k]; else globalThis[k] = v;
