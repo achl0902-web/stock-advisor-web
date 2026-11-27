@@ -242,7 +242,7 @@ export function valueAccount(a, quotes, fx, snapshot) {
       pl: q?.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null,
     };
   });
-  const live = rows.length > 0 && rows.every(r => r.value != null) && (!a.cash_usd || !!fx);
+  const live = rows.every(r => r.value != null) && (!a.cash_usd || !!fx);
   const cash = (a.cash_krw || 0) + (a.cash_usd || 0) * (fx || 0);
   const total = live ? rows.reduce((s, r) => s + r.value, 0) + cash : snapshot?.total_krw ?? null;
   for (const r of rows) {
@@ -329,10 +329,13 @@ export function worthSeries(worth, key, win = {}, now = null, today = todayKST()
   const lead = rows.findIndex(r => Object.keys(r.by).length);
   if (lead < 0) return empty;
   rows = rows.slice(lead);
-  if (now && end >= worth.t.at(-1)) {
-    const by = Object.fromEntries(keys.filter(k => now[k] != null && first[k] >= 0).map(k => [k, now[k]]));
+  // 최신 계좌 평가액이 하나라도 누락되면 과거 총액과 섞지 않는다.
+  const activeKeys = keys.filter(k => first[k] >= 0);
+  if (now && end >= worth.t.at(-1) && activeKeys.length &&
+      activeKeys.every(k => Number.isFinite(now[k]))) {
+    const by = Object.fromEntries(activeKeys.map(k => [k, now[k]]));
     if (rows.at(-1).t === today) rows.at(-1).by = { ...rows.at(-1).by, ...by };
-    else rows.push({ t: "지금", by: { ...rows.at(-1).by, ...by }, fl: {} });
+    else rows.push({ t: "지금", by, fl: {} });
   }
   // 생긴 계좌 중 하나라도 그날 값이 비면 그날 합계도 비운다
   const total = by => { const v = Object.values(by); return v.length && v.every(x => x != null) ? v.reduce((a, b) => a + b, 0) : null; };
