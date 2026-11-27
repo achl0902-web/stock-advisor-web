@@ -158,7 +158,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .dates li:last-child { padding-bottom: 2px; }
 .dday { align-self: start; display: grid; place-items: center; height: 30px; border-radius: 9px; background: var(--raised); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .dates .due .dday { background: var(--warn-wash); color: var(--warn); }
-.dates .done { opacity: .55; }
+.dates .done .dday { background: var(--raised); color: var(--dim); }
 .dates-main { display: grid; gap: 2px; min-width: 0; }
 .dates-main small { font-size: 13px; color: var(--sub); }
 .dates-main p { font-size: 13px; line-height: 1.5; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
@@ -184,7 +184,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 
 /* ---------- 탭 안 갈래·거르기 칩 ---------- */
 .seg { justify-self: start; display: inline-flex; gap: 2px; padding: 4px; border-radius: 14px; background: var(--panel); max-width: 100%; }
-.seg a, .seg button { display: grid; place-items: center; min-height: 38px; padding: 0 clamp(12px, 3.6vw, 18px); border: 0; border-radius: 10px; background: none; color: var(--sub); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
+.seg a, .seg button { display: grid; place-items: center; min-height: 44px; padding: 0 clamp(12px, 3.6vw, 18px); border: 0; border-radius: 10px; background: none; color: var(--sub); font-size: 15px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
 .seg [aria-current="page"], .seg [aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .seg button:disabled { color: var(--dim); opacity: .45; cursor: default; }
 .seg-fill { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; justify-self: stretch; }
@@ -192,7 +192,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 @media (min-width: 480px) { .seg-fill button { font-size: 14px; } }
 .chips { display: flex; gap: 6px; overflow-x: auto; margin-inline: calc(var(--gut) * -1); padding-inline: var(--gut); scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
-.chip { flex: none; height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--panel); color: var(--sub); font-size: 14px; cursor: pointer; }
+.chip { flex: none; height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--panel); color: var(--sub); font-size: 14px; cursor: pointer; }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
 
 /* ---------- 기록 ---------- */
@@ -365,10 +365,19 @@ html { overflow-anchor: none; }
 .range .seg { background: var(--raised); }
 .range-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .range-top > :only-child { grid-column: 1 / -1; }
+@media (max-width: 360px) { .range-top { grid-template-columns: minmax(0, 1fr); } .seg-unit { justify-self: start; } }
+.range-custom { min-width: 0; border-top: 1px solid var(--line); }
+.range-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; min-height: 44px; padding: 7px 0; color: var(--sub); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.range-summary::-webkit-details-marker { display: none; }
+.range-summary::before { content: "▸"; color: var(--accent); font-size: 14px; }
+.range-custom[open] .range-summary::before { content: "▾"; }
+.range-summary .range-dates { margin-left: auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; }
+.range-summary .range-dates b { font-size: 13px; }
+.range-custom-controls { display: grid; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .seg-unit button { min-width: 40px; padding: 0 10px; }
 .range-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; max-width: 100%; }
-.date-field { display: grid; gap: 4px; min-width: 0; color: var(--sub); font-size: 12px; font-weight: 600; }
-.date-select { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-width: 0; height: 44px; padding: 0 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--ink); }
+.date-field { display: grid; gap: 4px; min-width: 0; color: var(--sub); font-size: 13px; font-weight: 600; }
+.date-select { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-width: 0; height: 44px; padding: 0 10px; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--ink); }
 .date-value { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; font-weight: 600; }
 .date-select svg { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--sub); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 /* iOS Safari의 native date 입력은 보이지 않게 겹쳐 터치 영역과 날짜 선택기만 활용한다. */
@@ -434,7 +443,7 @@ details.rung { display: block; }
 .rung p { grid-column: 1 / -1; font-size: 13px; line-height: 1.5; color: var(--dim); }
 .rung:not([open]) p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .rung.done { background: none; box-shadow: inset 0 0 0 1px var(--line); }
-.rung.done :is(.rung-k, b, p) { opacity: .55; }
+.rung.done :is(.rung-k, b, p) { color: var(--dim); }
 .rung.now { background: var(--accent-wash); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .rung.now .rung-k { color: var(--accent); }
 
@@ -464,14 +473,14 @@ details.rung { display: block; }
 
 /* ---------- 버튼·연결 화면·불러오는 중 ---------- */
 .btn { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 48px; padding: 0 18px; border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-ink); font-weight: 700; cursor: pointer; }
-.btn-ghost { background: none; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); margin-top: 6px; }
+.btn-ghost { background: none; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); margin-top: 6px; }
 .btn-danger { color: var(--up-ink); }
 .setup { display: grid; gap: 16px; max-width: 480px; margin: 20px auto 0; justify-self: center; width: 100%; }
 .setup h1 { font-size: 28px; font-weight: 700; letter-spacing: -.02em; line-height: 1.25; }
 .setup .note { margin: 0; }
 .setup form { display: grid; gap: 12px; }
 .setup label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; color: var(--sub); }
-.setup input { height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--ink); font: 16px var(--font-ui); }
+.setup input { height: 48px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--panel); color: var(--ink); font: 16px var(--font-ui); }
 .setup input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
 .howto { font-size: 14px; }
 .howto summary { cursor: pointer; font-weight: 600; }
