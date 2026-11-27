@@ -6,8 +6,8 @@
   color-scheme: dark;
   --bg: #000000;
   --panel: #121212;
-  --raised: #1c1c1c;
-  --line: #262626;
+  --raised: #262a28;
+  --line: #303831;
   --grid: #191919;
   --ink: #f2f2f2;
   --sub: #a8a8a8;   /* 보조 글자: 패널 위 대비 7:1 */
@@ -17,7 +17,7 @@
   --up-ink: #ff6b78;  /* 글자용: 패널 위 대비 6:1 이상 */
   --down-ink: #5c9dff;
   --flat: #9a9a9a;
-  --warn: #ffb020;
+  --warn: #ffb86b;
   --accent: #c8ff2e;
   --accent-ink: #000000;
   --accent-wash: color-mix(in srgb, var(--accent) 16%, transparent);
@@ -29,25 +29,27 @@
   --font-seal: "Nanum Myeongjo", "Noto Serif KR", "Noto Serif CJK KR", "AppleMyungjo", "Batang", serif;
   --tab-h: 56px;
   --rail: 84px;
+  --line-strong: #6f7f73;
 }
 :root[data-palette="storm"] {   /* 스톰 오렌지: Storm Grey 60 · Matte Black 30 · Safety Orange 10 — 바탕이 패널보다 밝아 카드가 떠 보인다 */
   --bg: #3a3e44;
   --panel: #17181b;
-  --raised: #25272b;
-  --line: #2f3237;
+  --raised: #303238;
+  --line: #454a52;
   --grid: #1f2124;
   --ink: #f3f4f6;
   --sub: #b9bec6;
   --dim: #9aa0a8;
   --flat: #a0a5ad;
-  --accent: #ff5f00;
+  --accent: #ff783d;
   --accent-ink: #120800;
+  --line-strong: #77818f;
 }
 :root[data-palette="cobalt"] {  /* 코발트 옐로: Cobalt Night 60 · Black Navy 30 · Signal Yellow 10. 바탕이 파래서 하락 파랑을 밝게 */
   --bg: #18204a;
   --panel: #0c1029;
-  --raised: #1a2150;
-  --line: #252d5c;
+  --raised: #253054;
+  --line: #34416e;
   --grid: #141a3c;
   --ink: #eef0ff;
   --sub: #b2b8e0;
@@ -57,12 +59,13 @@
   --accent-ink: #1a1500;
   --down: #4f8cff;
   --down-ink: #8db4ff;
+  --line-strong: #6c7aa2;
 }
 :root[data-palette="espresso"] {
   --bg: #140f0b;
   --panel: #201913;
-  --raised: #2b221a;
-  --line: #3a2e24;
+  --raised: #34291f;
+  --line: #4a3a2c;
   --grid: #251d16;
   --ink: #f4ede5;
   --sub: #bcab9a;
@@ -70,6 +73,7 @@
   --flat: #a69584;
   --accent: #6cf5cf;
   --accent-ink: #140f0b;
+  --line-strong: #81725f;
 }
 
 /* ---------- 화면 이동 탭: 휴대폰은 가운데 떠 있는 알약(탭 수만큼 폭, nav.js가 --tabs를 넣는다), 넓은 화면은 왼쪽 레일 ---------- */
