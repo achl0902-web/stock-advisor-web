@@ -63,6 +63,9 @@ function rangeBox({ units = false } = {}) {
           ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
           ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
         </div>
+        <div class="range-steps" role="group" aria-label="기간 일주일 단위로 미세 조정">
+          ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label} 1주씩</span><button type="button" data-step-end="${end}" data-step="-7" aria-label="${label} 일주일 전">−7일</button><button type="button" data-step-end="${end}" data-step="7" aria-label="${label} 일주일 후">+7일</button></div>`).join("")}
+        </div>
         ${sliderBox(t, w)}
       </div>
     </details>
@@ -140,6 +143,16 @@ function bindRange() {
     customWindow(a, b);
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(drawTrends); // 끄는 동안 한 화면에 한 번만 다시 그린다
+  }));
+  // 긴 이력의 1픽셀 차이가 며칠씩 벌어지는 모바일에서 7일 단위로 조정한다.
+  view.querySelectorAll("[data-step-end]").forEach(btn => btn.addEventListener("click", () => {
+    const w = presetWindow(t);
+    let a = t.indexOf(w.from), b = t.indexOf(w.to);
+    const delta = Number(btn.dataset.step);
+    if (btn.dataset.stepEnd === "from") a = Math.min(Math.max(0, a + delta), Math.max(0, b - 1));
+    else b = Math.max(Math.min(t.length - 1, b + delta), Math.min(t.length - 1, a + 1));
+    customWindow(a, b);
+    drawTrends();
   }));
   view.querySelectorAll("[data-date]").forEach(input => input.addEventListener("change", () => {
     const current = presetWindow(t);

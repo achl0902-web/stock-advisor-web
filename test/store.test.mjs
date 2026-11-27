@@ -123,3 +123,23 @@ test("viewOn: 지난 날의 보유·평단·수익률", async () => {
   assert.equal(v.total, 2 * 50 * 1000 + 500 + 1000); assert.equal(v.on, "d1");
   assert.ok(Math.abs(viewOn("a", 2).rows[0].pl - 20) < 1e-9);
 });
+
+test("valueAccount: 현금 전용 계좌는 시세 없이 계산하고, 달러 현금은 환율 없을 때 보류", () => {
+  const cashOnly = { holdings: [], cash_krw: 500000, cash_usd: 0 };
+  assert.deepEqual([valueAccount(cashOnly, {}, null).total, valueAccount(cashOnly, {}, null).live], [500000, true]);
+  assert.equal(valueAccount({ holdings: [], cash_krw: 0, cash_usd: 100 }, {}, null).live, false);
+  assert.equal(valueAccount({ holdings: [], cash_krw: 0, cash_usd: 100 }, {}, 1350).total, 135000);
+});
+
+test("worthSeries: 일부 계좌만 현재가가 있으면 과거 금액을 섞어 현재 총액을 만들지 않는다", () => {
+  const worth = { t: ["2026-11-25", "2026-11-26"],
+    v: { a: [100, 110], b: [200, 210] }, f: { a: [0, 0], b: [0, 0] } };
+  const partial = worthSeries(worth, ["a", "b"], {}, { a: 120 }, "2026-11-27");
+  assert.equal(partial.points.at(-1).t, "2026-11-26");
+  assert.equal(partial.sum.end, 320);
+  const complete = worthSeries(worth, ["a", "b"], {}, { a: 120, b: 220 }, "2026-11-27");
+  assert.equal(complete.points.at(-1).t, "지금");
+  assert.equal(complete.sum.end, 340);
+  const missing = worthSeries(worth, ["a", "b"], {}, { a: Number.NaN, b: 220 }, "2026-11-27");
+  assert.equal(missing.points.at(-1).t, "2026-11-26");
+});
