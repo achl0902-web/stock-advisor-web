@@ -1,6 +1,7 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
-import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries } from "./store.js";
+import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries, quoteStatus } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
+import { normalizeDateRange } from "./date-range.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, LOG_TABS } from "./ui.js";
 
@@ -17,7 +18,7 @@ let trends = []; // 지금 화면에 그린 성과 칸들 [{key, now, label}]: �
 
 function presetWindow(t) {
   if (win.preset === "all") return { from: t[0], to: t.at(-1) };
-  if (!win.preset) return { from: win.from || t[0], to: win.to || t.at(-1) };
+  if (!win.preset) return normalizeDateRange(t, win.from || t[0], win.to || t.at(-1));
   const from = new Date(Date.parse(t.at(-1)) - +win.preset * 86400000).toISOString().slice(0, 10);
   return { from: t.find(d => d >= from) || t[0], to: t.at(-1) };
 }
@@ -25,11 +26,11 @@ function presetWindow(t) {
 // 기간 고르기: 버튼(1주~전체)과 시작·끝 손잡이 두 개짜리 슬라이더. 화면 위에 하나, 아래 모든 성과 칸에 같이 쓴다
 // 손잡이 두 개 슬라이더. 제자리 막대와 위에 뜨는 막대가 같은 모양을 쓴다
 function sliderBox(t, w) {
-  const at = d => t.indexOf(d) / (t.length - 1) * 100;
+  const at = d => t.length > 1 ? t.indexOf(d) / (t.length - 1) * 100 : 0;
   return `<div class="slider" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
       <span class="slider-track" aria-hidden="true"><i></i></span>
-      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일">
-      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일">
+      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일" ${t.length < 2 ? "disabled" : ""}>
+      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일" ${t.length < 2 ? "disabled" : ""}>
     </div>`;
 }
 
@@ -44,6 +45,10 @@ function rangeBox({ units = false } = {}) {
   const unitSeg = unitOn ? `<div class="seg seg-unit" role="group" aria-label="통화 기준">${[["KRW", "원"], ["USD", "$"]].map(([v, l]) => `<button type="button" data-unit="${v}" aria-pressed="${unit === v}" aria-label="${v === "KRW" ? "원화 기준" : "달러 기준"}">${l}</button>`).join("")}</div>` : "";
   return `<section class="range" aria-label="기간">
     <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
+    <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
+      <label>시작일<input type="date" data-date="from" value="${w.from}" min="${t[0]}" max="${t.at(-1)}" aria-label="성과 시작일"></label>
+      <label>종료일<input type="date" data-date="to" value="${w.to}" min="${t[0]}" max="${t.at(-1)}" aria-label="성과 종료일"></label>
+    </div>
     ${sliderBox(t, w)}
     <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b><span>까지</span></p>
   </section>
@@ -51,6 +56,16 @@ function rangeBox({ units = false } = {}) {
     <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></p>
     ${sliderBox(t, w)}
   </div>`;
+}
+
+function priceStatusBar() {
+  const status = quoteStatus(state.model);
+  const at = status.asof ? `${dateLabel(status.asof)} 수집` : "수집 이력 없음";
+  const age = status.ageMinutes == null ? "" : status.ageMinutes >= 30 ? ` · 수집 후 ${status.ageMinutes < 60 ? `${status.ageMinutes}분` : `${Math.floor(status.ageMinutes / 60)}시간`} 경과` : "";
+  const errors = status.errors.length ? (window.saFamily
+    ? `<span>시세 수집 실패 ${status.errors.length}건</span>`
+    : `<details><summary>시세 수집 실패 ${status.errors.length}건</summary><p>${esc(status.errors.join(", "))}</p></details>`) : "";
+  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격 날짜는 보유 목록에 별도 표시</span>${errors}</aside>`;
 }
 
 const TOP = 64; // 위 막대 높이(56) + 여유
@@ -81,15 +96,22 @@ function bindRange() {
     ins("from").forEach(x => { x.value = a; });
     ins("to").forEach(x => { x.value = b; });
     view.querySelectorAll(".slider").forEach(box => {
-      box.style.setProperty("--a", `${a / (t.length - 1) * 100}%`);
-      box.style.setProperty("--b", `${b / (t.length - 1) * 100}%`);
+      box.style.setProperty("--a", `${t.length > 1 ? a / (t.length - 1) * 100 : 0}%`);
+      box.style.setProperty("--b", `${t.length > 1 ? b / (t.length - 1) * 100 : 0}%`);
     });
+    view.querySelectorAll('[data-date="from"]').forEach(x => { x.value = t[a]; });
+    view.querySelectorAll('[data-date="to"]').forEach(x => { x.value = t[b]; });
     view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = dayText(t[a]); });
     view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = dayText(t[b]); });
   };
   // 손잡이를 잡는 순간 아이폰 사파리는 그 입력칸을 "보이게" 하려고 화면을 끌어올린다.
   // 끄는 동안에는 페이지가 움직일 이유가 없으니, 잡은 자리에서 벗어나면 바로 되돌린다.
   const hold = () => { dragY = scrollY; };
+  const customWindow = (a, b) => {
+    Object.assign(win, { preset: null, from: t[a], to: t[b] });
+    show(a, b);
+    view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", "false"));
+  };
   view.querySelectorAll(".slider input").forEach(x => {
     x.addEventListener("pointerdown", hold); x.addEventListener("touchstart", hold, { passive: true });
   });
@@ -98,11 +120,18 @@ function bindRange() {
     const box = input.closest(".slider");
     let a = +box.querySelector('[data-end="from"]').value, b = +box.querySelector('[data-end="to"]').value;
     if (a > b - 1) { if (input.dataset.end === "from") a = Math.max(0, b - 1); else b = Math.min(t.length - 1, a + 1); }
-    Object.assign(win, { preset: null, from: t[a], to: t[b] });
-    show(a, b);
-    view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", "false"));
+    customWindow(a, b);
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(drawTrends); // 끄는 동안 한 화면에 한 번만 다시 그린다
+  }));
+  view.querySelectorAll("[data-date]").forEach(input => input.addEventListener("change", () => {
+    const current = presetWindow(t);
+    const a = view.querySelector('[data-date="from"]').value || current.from;
+    const b = view.querySelector('[data-date="to"]').value || current.to;
+    const w = normalizeDateRange(t, a, b, input.dataset.date);
+    customWindow(w.start, w.end);
+    cancelAnimationFrame(raf);
+    drawTrends();
   }));
   view.querySelectorAll("[data-unit]").forEach(btn => btn.addEventListener("click", () => {
     unit = btn.dataset.unit;
@@ -173,7 +202,7 @@ const amt = v => v == null ? "–" : `<span data-krw="${v}">${esc(short(v))}</sp
 function asOfIdx() {
   const w = state.model.worth, t = w?.t;
   if (!t?.length || !w.pos) return null;
-  const i = t.indexOf(win.to);
+  const i = t.indexOf(presetWindow(t).to);
   return i < 0 || i === t.length - 1 ? null : i;
 }
 const viewAt = k => { const i = asOfIdx(); return (i != null && viewOn(k, i)) || accountView(k); };
@@ -250,9 +279,10 @@ function holdBlock(v) {
   if (v.cash > 0) slices.push({ key: "cash", label: "현금", value: v.cash, color: CASH });
   const rows = v.rows.map(({ h, q, value, pl, weight }, i) => {
     const unit = h.market === "CRYPTO" ? h.symbol : "주";
+    const priceDay = v.on ? "" : q?.barDate ? `<small class="price-date">종가 ${esc(dayText(q.barDate))}</small>` : q?.at ? `<small class="price-date">확인 ${esc(dateLabel(q.at))}</small>` : "";
     return `<li class="hold">
       <div class="hold-top"><b><i class="sw" style="background:${slices[i].color}"></i>${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</b><span class="fig">${amt(value)}<small>${weight != null ? nf(1).format(weight) + "%" : ""}</small></span></div>
-      <div class="hold-sub"><span>${qtyText(h.qty, unit)}${h.avg_price ? `, 평단 ${money(h.avg_price, h.currency)}` : ""}</span><span>${q?.price != null ? `<span class="fig">${money(q.price, h.currency)}</span>${pl != null ? ` <b class="fig tone-${tone(pl)}">${pct(pl)}</b>` : ""}` : "시세 없음"}</span></div>
+      <div class="hold-sub"><span>${qtyText(h.qty, unit)}${h.avg_price ? `, 평단 ${money(h.avg_price, h.currency)}` : ""}</span><span>${q?.price != null ? `<span class="fig">${money(q.price, h.currency)}</span>${pl != null ? ` <b class="fig tone-${tone(pl)}">${pct(pl)}</b>` : ""}${priceDay}` : "시세 없음"}</span></div>
     </li>`;
   }).join("");
   const cashText = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
@@ -260,7 +290,7 @@ function holdBlock(v) {
   const basis = v.on
     ? `${dayText(v.on)} 종가로 잰 그날 보유입니다(끝 손잡이 날짜). 평단과 수익률도 그날까지의 거래로 계산한 값입니다.`
     : v.live
-    ? `지금 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}.`
+    ? `최근 확보한 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}. 실시간 가격과 다를 수 있습니다.`
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
   const expo = v.on ? null : v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<div class="split">
@@ -317,7 +347,7 @@ export function renderLongTerm(kind = "pension") {
   trends = [];
   view.innerHTML = `
     ${subtabs(TABS, kind)}
-    ${keys.length ? `${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(viewAt(k), colorOf(k), { live: accountView(k) })).join("")}</div>
+    ${keys.length ? `${priceStatusBar()}${rangeBox({ units: true })}<div class="cards">${keys.map(k => accountPanel(viewAt(k), colorOf(k), { live: accountView(k) })).join("")}</div>
     <p class="hint foot">바로 쓸 돈이 아니라서 계좌 탭의 전체 합계에는 넣지 않습니다.</p>${worthNote(keys)}` : `<p class="none">${kind === "crypto" ? "코인" : "퇴직연금"} 계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`}`;
   holds = () => keys.forEach(k => refreshPanel(view.querySelector(`.panel.account[data-key="${CSS.escape(k)}"]`), viewAt(k)));
   holdsAt = asOfIdx();
@@ -382,6 +412,7 @@ function renderGroup() {
   trends = [];
   view.innerHTML = `
     ${fam ? "" : subtabs(TABS, tab)}
+    ${priceStatusBar()}
     ${rangeBox({ units: true })}
     <div class="accounts">
       <div class="col">

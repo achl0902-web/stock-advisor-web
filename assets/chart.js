@@ -26,9 +26,10 @@ export function donut(slices, { size = 160, center = "", sub = "", picked = null
 }
 
 // "2026-11-02" → 올해면 "11/02", 다른 해면 "25.11.02"
+const kstYear = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", year: "numeric" });
 export function dayText(d) {
   if (d === "지금") return d;
-  return d.slice(0, 4) === new Date().toISOString().slice(0, 4) ? d.slice(5).replace("-", "/") : d.slice(2).replaceAll("-", ".");
+  return d.slice(0, 4) === kstYear.format(new Date()) ? d.slice(5).replace("-", "/") : d.slice(2).replaceAll("-", ".");
 }
 
 /* ---------- 추이 선: points [{t: "2026-11-02", v, p?}], 비는 날은 끊는다. p(투자원금)가 있으면 점선으로 함께 ---------- */
