@@ -6,7 +6,7 @@
   var THEMES = [ // base 60 · panel 30 · accent 10
     { id: "black", label: "블랙 라임", base: "#000000", panel: "#121212", accent: "#c8ff2e" },
     { id: "espresso", label: "에스프레소 민트", base: "#140f0b", panel: "#201913", accent: "#6cf5cf" },
-    { id: "storm", label: "스톰 오렌지", base: "#3a3e44", panel: "#17181b", accent: "#ff5f00" },
+    { id: "storm", label: "스톰 오렌지", base: "#3a3e44", panel: "#17181b", accent: "#ff783d" },
     { id: "cobalt", label: "코발트 옐로", base: "#18204a", panel: "#0c1029", accent: "#ffd60a" },
   ];
   var byId = function (id) { return THEMES.filter(function (t) { return t.id === id; })[0]; };
@@ -82,7 +82,8 @@
     "[data-theme-switch]{position:relative;display:inline-flex;align-items:center}" +
     ".theme-dot{display:inline-block;width:24px;height:24px;border-radius:50%;padding:0;flex:none;border:1px solid color-mix(in srgb,var(--dot-accent) 40%,transparent);" +
     "background:radial-gradient(circle at 50% 50%,var(--dot-accent) 0 30%,var(--dot-base) 33%)}" +
-    ".theme-btn{cursor:pointer;box-shadow:0 0 0 2px var(--dot-base),0 0 0 4px var(--dot-accent)}" +
+    ".theme-btn{width:44px;height:44px;cursor:pointer;border:0;background:radial-gradient(circle,var(--dot-accent) 0 7px,var(--dot-base) 8px 10px,var(--dot-accent) 11px 12px,transparent 13px);box-shadow:none}" +
+    ".theme-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}" +
     ".theme-menu{position:absolute;right:-6px;top:calc(100% + 10px);z-index:60;display:grid;gap:2px;min-width:244px;padding:6px;border-radius:16px;" +
     "background:color-mix(in srgb,var(--panel,#121212) 92%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);" +
     "box-shadow:inset 0 0 0 1px var(--line,#262626),0 16px 40px -10px rgba(0,0,0,.75)}" +
