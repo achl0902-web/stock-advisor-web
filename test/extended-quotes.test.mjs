@@ -1,0 +1,20 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const source = readFileSync(new URL("../assets/sise.js", import.meta.url), "utf8");
+const page = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+test("미국 장전·장후 시세는 신선도가 확인된 경우에만 정규장 가격과 별도로 전달한다", () => {
+  assert.match(source, /extended:n\.extended&&Math\.abs\(Date\.now\(\)-Date\.parse\(n\.extended\.asof\)\)<12e5\?n\.extended:null/);
+  assert.match(source, /className:"extended-note"/);
+  assert.match(source, /r\.extended\.session==="pre"\?"장전":"장후"/);
+  assert.match(source, /t\.extended\.session==="pre"\?"장전":"장후"/);
+  assert.match(source, /children:Wr\(r,r\.last\)/); // 기존 정규장 종가 유지
+  assert.match(source, /children:\$n\(r\.chg\)/); // 기존 등락률 유지
+});
+
+test("좁은 모바일 시세 종목 행에서 연장장 가격이 가로폭을 넘지 않는다", () => {
+  assert.match(page, /\.w-quote\s*\{[^}]*min-width:\s*0;[^}]*max-width:/);
+  assert.match(page, /\.extended-note\s*\{[^}]*max-width:\s*100%;[^}]*text-overflow:\s*ellipsis;/);
+});
