@@ -26,18 +26,19 @@ function actionSummary() {
     .sort((a, b) => Number(b.reached) - Number(a.reached) || Math.abs(a.dist) - Math.abs(b.dist));
   const seen = new Set();
   const alerts = levels.filter(x => !seen.has(x.item.code) && seen.add(x.item.code)).slice(0, 3);
-  const orders = m.openOrders.filter(o => !o.expires || o.expires >= today).slice(0, 3);
+  const orders = m.openOrders.filter(o => !o.expires || o.expires >= today)
+    .sort((a, b) => (a.expires || "9999-12-31").localeCompare(b.expires || "9999-12-31")).slice(0, 3);
   const dates = upcoming(levelItems(), 2);
   return `<section class="panel today-actions">
     ${head("확인할 항목", `<span class="hint">중요 상태 우선</span>`)}
-    ${alerts.length ? `<h3>관심가</h3><ul class="today-list">${alerts.map(x => `<li><a href="${marketLevels}">
+    ${alerts.length ? `<h3>관심가</h3><ul class="today-list">${alerts.map(x => `<li><a href="${marketLevels}/${encodeURIComponent(x.item.code)}">
       <span><b>${esc(x.item.name)}</b><small>${esc(String(x.level.msg || "").split(":")[0])}</small></span>
       <span class="today-result ${x.reached ? "tone-warn" : ""}">${x.reached ? "조건 도달 · 확인" : distText(x.dist)}${icon("next")}</span>
     </a></li>`).join("")}</ul>` : `<p class="hint">가격이 확인된 미도달 관심가가 없습니다.</p>`}
-    ${orders.length ? `<h3>체결 확인 전 주문</h3><ul class="today-list">${orders.map(o => `<li class="today-order">
-      <span><b>${esc(o.name || m.names[o.code] || o.code)}</b><small>${o.side === "sell" ? "매도" : "매수"} · ${esc(o.account || "")}</small></span>
-      <span class="today-result"><b class="fig">${money(o.limit, o.market === "US" ? "USD" : "KRW")}</b>${o.expires ? `<small>${dday(o.expires, today)} 만료</small>` : ""}</span>
-    </li>`).join("")}</ul>` : ""}
+    ${orders.length ? `<h3>체결 확인 전 주문</h3><ul class="today-list">${orders.map(o => `<li><a class="today-order-action" href="#/log/search/${encodeURIComponent(o.code)}" aria-label="${esc(o.name || m.names[o.code] || o.code)} 관련 판단 기록 찾기">
+      <span><b>${esc(o.name || m.names[o.code] || o.code)}</b><small>${o.side === "sell" ? "매도" : "매수"} · ${esc(o.account || "")} · 관련 판단 보기</small></span>
+      <span class="today-result"><b class="fig">${money(o.limit, o.market === "US" ? "USD" : "KRW")}${icon("next")}</b>${o.expires ? `<small>${dday(o.expires, today)} 만료</small>` : ""}</span>
+    </a></li>`).join("")}</ul>` : ""}
     ${dates.length ? `<h3>관심 일정</h3><ul class="today-list">${dates.map(d => `<li class="today-order"><span><b>${esc(d.item.name)}</b><small>${esc(d.msg)}</small></span><span class="today-result">${dday(d.date, today)}</span></li>`).join("")}</ul>` : ""}
   </section>`;
 }

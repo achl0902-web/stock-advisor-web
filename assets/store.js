@@ -319,7 +319,12 @@ export function worthSeries(worth, key, win = {}, now = null, today = todayKST()
   const keys = Array.isArray(key) ? key.filter(k => worth.v[k]) : key === "all" ? Object.keys(worth.v) : [key];
   const first = Object.fromEntries(keys.map(k => [k, (worth.v[k] || []).findIndex(v => v != null)]));
   const end = win.to || worth.t.at(-1);
-  let rows = worth.t.map((t, i) => {
+  // 기간을 움직일 때 수년 치 모든 날짜의 객체를 매번 생성하지 않는다.
+  // 시작일 직전 종가 한 건은 기초 평가액 계산을 위해 유지한다.
+  const startAt = win.from ? Math.max(0, worth.t.findIndex(t => t >= win.from) - 1) : 0;
+  let rows = [];
+  for (let i = startAt; i < worth.t.length && worth.t[i] <= end; i++) {
+    const t = worth.t[i];
     const by = {}, fl = {};
     for (const k of keys) {
       if (first[k] < 0 || i < first[k]) continue; // 아직 설정에 없던 계좌
@@ -327,11 +332,9 @@ export function worthSeries(worth, key, win = {}, now = null, today = todayKST()
       // 처음 생긴 날은 그날 평가액 전부가 들어온 돈(그날 거래내역 입출금은 그 안에 있다)
       fl[k] = i === first[k] ? (worth.v[k][i] ?? 0) : (worth.f?.[k]?.[i] || 0);
     }
-    return { t, by, fl };
-  });
+    rows.push({ t, by, fl });
+  }
   // 기초는 시작일 전날 마감 값(증권사 투자성과와 같이 시작일 하루치 손익도 기간에 넣는다)
-  const startAt = win.from ? Math.max(0, worth.t.findIndex(t => t >= win.from) - 1) : 0;
-  rows = rows.filter((r, i) => i >= startAt && r.t <= end);
   const lead = rows.findIndex(r => Object.keys(r.by).length);
   if (lead < 0) return empty;
   rows = rows.slice(lead);
@@ -370,8 +373,9 @@ export function worthSeries(worth, key, win = {}, now = null, today = todayKST()
     sum.sells = sells.sort((a, b) => b.d.localeCompare(a.d));
     sum.partial = known.length < keys.length; // 거래내역이 없는 계좌가 섞임
   }
+  const chartDays = new Set(points.map(p => p.t));
   const marks = (worth.events ? keys.flatMap(k => (worth.events[k] || []).map(e => ({ t: e.d, label: e.label }))) : [])
-    .filter(m => points.some(p => p.t === m.t));
+    .filter(m => chartDays.has(m.t));
   return { points, marks, sum };
 }
 

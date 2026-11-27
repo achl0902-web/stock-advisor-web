@@ -114,6 +114,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .today-result .ic { width: 14px; height: 14px; }
 .today-result small { text-align: right; }
 .today-order .today-result { display: grid; }
+.today-order-action .today-result { display: grid; justify-items: end; }
 .today-latest { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 14px; align-items: center; text-decoration: none; }
 .today-latest > span:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--sub); font-size: 13px; }
 .today-latest .ic { display: inline; vertical-align: middle; width: 14px; height: 14px; }
@@ -381,13 +382,14 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
   .hold-top > .fig { margin-left: auto; max-width: 100%; white-space: normal; text-align: right; }
   .hold-sub { padding-left: 0; }
 }
-.price-status { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 9px 12px; border-radius: 12px; background: var(--panel); color: var(--sub); font-size: 12.5px; }
+.price-status { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 9px 12px; border-radius: 12px; background: var(--panel); color: var(--sub); font-size: 14px; }
 .price-status.old, .price-status.missing { background: var(--warn-wash); color: var(--warn); }
 .price-status.error { background: var(--up-wash); color: var(--up-ink); }
 .price-status summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 700; }
 .price-status details p { font-size: 12px; overflow-wrap: anywhere; }
 .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--raised); font-size: 12px; font-weight: 500; color: var(--sub); vertical-align: 1px; }
 .account > .hint { margin-top: 4px; }
+.account-selection { margin: -5px 0 4px; font-size: 14px; font-weight: 600; color: var(--sub); }
 
 /* 도넛과 그 옆 목록: 좁으면 위아래, 넓으면 나란히 */
 .split { display: grid; gap: 14px; justify-items: center; margin-bottom: 6px; }
@@ -401,7 +403,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .donut figcaption small { font-size: 12px; color: var(--dim); }
 
 /* 평가액 추이 선: 하나만 그리므로 포인트 색 하나. 점은 HTML로 얹어 늘어나도 동그랗다 */
-.line { position: relative; height: 150px; margin: 4px 0 8px; touch-action: pan-y; outline-offset: 4px; }
+.line { position: relative; height: clamp(228px, 58vw, 270px); margin: 8px 0 10px; touch-action: pan-y; outline-offset: 4px; }
 .line svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ln-grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .ln-path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
@@ -429,16 +431,22 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 @media (pointer: coarse) { .ln-tip { display: none !important; } }
 .panel > .line:last-child { margin-bottom: 0; }
 .ln-tip[hidden], .ln-pt[hidden] { display: none; }
-.ln-key { display: flex; gap: 14px; margin: -2px 0 8px; font-size: 12px; color: var(--dim); }
+.ln-key { display: flex; flex-wrap: wrap; gap: 5px 14px; margin: -2px 0 8px; font-size: 13px; color: var(--sub); }
 .ln-key i { display: inline-block; width: 14px; height: 0; margin-right: 6px; vertical-align: 3px; border-top: 2px solid var(--accent); }
 .ln-key i.k-p { border-top: 2px dashed var(--sub); }
 
 /* 기간: 버튼과 손잡이 두 개 슬라이더(QLD 백테스터처럼). 위쪽 하나가 아래 모든 성과 칸에 같이 쓰인다 */
 .range { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 10px; padding: 12px 14px 10px; border-radius: var(--r-panel); background: var(--panel); }
+.account-filter + .range { margin-bottom: -7px; border-radius: var(--r-panel) var(--r-panel) 11px 11px; }
+.range + .accounts > .account { border-radius: 11px 11px var(--r-panel) var(--r-panel); }
 /* 제자리 막대를 지나 내려가면 화면 위에 뜨는 작은 막대. 문서 흐름 밖(fixed)이라 나타나고 사라져도 아래 내용이 밀리지 않는다 */
 .range-float { position: fixed; z-index: 15; top: calc(56px + env(safe-area-inset-top, 0px)); left: var(--fl, var(--gut)); width: var(--fw, calc(100% - 2 * var(--gut))); transform: translateY(-8px); display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 6px 14px; border-radius: var(--r-panel); background: color-mix(in srgb, var(--panel) 92%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .9); opacity: 0; visibility: hidden; transition: opacity .15s, transform .15s, visibility 0s .15s; }
 .range-float.on { opacity: 1; visibility: visible; transform: none; transition: opacity .15s, transform .15s; }
 .range-float .range-dates { gap: 4px; }
+@media (max-width: 480px) {
+  .range-float { grid-template-columns: minmax(0, 1fr); gap: 0; padding-block: 6px; }
+  .range-float .range-dates { justify-content: space-between; }
+}
 @media (prefers-reduced-motion: reduce) { .range-float, .range-float.on { transition: none; } }
 /* 다시 그릴 때 스크롤 보정은 화면 코드가 직접 한다(브라우저 보정과 겹치지 않게) */
 html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 20px); }
@@ -451,8 +459,8 @@ html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(saf
 .range-summary::-webkit-details-marker { display: none; }
 .range-summary::before { content: "▸"; color: var(--accent); font-size: 14px; }
 .range-custom[open] .range-summary::before { content: "▾"; }
-.range-summary .range-dates { margin-left: auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; }
-.range-summary .range-dates b { font-size: 13px; }
+.range-summary .range-dates { margin-left: auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; font-size: 13px; }
+.range-summary .range-dates b { font-size: 14px; }
 .range-custom-controls { display: grid; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .range-fine { min-width: 0; }
 .range-fine > summary { min-height: 44px; display: flex; align-items: center; gap: 7px; padding: 4px 0; list-style: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--sub); }
@@ -468,7 +476,7 @@ html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(saf
 .range-step-pair > span { grid-column: 1 / -1; font-size: 12px; color: var(--sub); }
 .range-step-pair button { min-width: 0; min-height: 44px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--raised); color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
 .range-step-pair button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-@media (max-width: 360px) { .range-steps { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 360px) { .range-step-pair { gap: 4px; } .range-steps { gap: 6px; } }
 .date-field { display: grid; gap: 4px; min-width: 0; color: var(--sub); font-size: 13px; font-weight: 600; }
 .date-select { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-width: 0; height: 44px; padding: 0 10px; overflow: hidden; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--ink); }
 .date-value { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 15px; font-weight: 600; }
@@ -501,7 +509,7 @@ html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(saf
   .account > .panel-h { flex-wrap: wrap; }
   .account > .panel-h > b { margin-left: auto; }
   .perf { gap: 8px; }
-  .perf b { font-size: clamp(18px, 5.6vw, 24px); }
+  .perf b { font-size: clamp(18px, 5.6vw, 24px); white-space: normal; overflow-wrap: anywhere; }
   .perf > div:last-child b { font-size: 18px; }
 }
 @media (max-width: 360px) {
@@ -510,6 +518,7 @@ html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(saf
   .perf b { white-space: normal; overflow-wrap: anywhere; }
 }
 .perf-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; }
+.perf-baseline { margin: 5px 0 0; font-size: 13px; }
 .perf-facts dt small { color: var(--dim); }
 .perf-facts dd { font-size: 15px; }
 .breakdown-details { margin-top: 12px; border-top: 1px solid var(--line); }

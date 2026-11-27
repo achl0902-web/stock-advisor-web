@@ -4,11 +4,13 @@ import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { normalizeDateRange, shiftDateIndexByDays } from "./date-range.js";
 import { mergedView } from "./portfolio-merge.js";
 import { inline, markdown } from "./md.js";
-import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, MARKET_TABS } from "./ui.js";
+import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, icon, MARKET_TABS } from "./ui.js";
 
 
 /* ---------- 계좌: 위에 기간(버튼·슬라이더), 선택 계좌의 투자성과·평가액 추이·종목 구성 ---------- */
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
+// 선택한 기간은 양끝 모두 같은 형식으로 보여 주고, 기초 평가일은 아래 성과에 별도로 표시한다.
+const rangeDate = d => d?.slice(2).replaceAll("-", ".") || "–";
 // 날짜 입력의 iOS 기본 UI는 고유 너비가 커서 카드 밖으로 튀어나온다.
 // 표시 너비는 우리 컨트롤이 담당하고, 투명한 날짜 입력은 터치·키보드·접근성에 그대로 쓴다.
 function datePicker(end, label, date, min, max) {
@@ -56,18 +58,18 @@ function rangeBox({ units = false } = {}) {
   return `<section class="range" aria-label="기간">
     <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
     <details class="range-custom" open>
-      <summary class="range-summary"><span>기간 슬라이더</span><span class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></span></summary>
+      <summary class="range-summary"><span>기간 슬라이더</span><span class="range-dates"><b class="fig" data-label="from">${esc(rangeDate(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(rangeDate(w.to))}</b></span></summary>
       <div class="range-custom-controls">
         ${sliderBox(t, w)}
+        <div class="range-steps" role="group" aria-label="시작일과 종료일 일주일씩 조정">
+          ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label}</span><button type="button" data-step-end="${end}" data-step="-7" aria-label="${label} 일주일 전">−7일</button><button type="button" data-step-end="${end}" data-step="7" aria-label="${label} 일주일 후">+7일</button></div>`).join("")}
+        </div>
         <details class="range-fine">
-          <summary>날짜 직접 선택 · 7일씩 미세 조정</summary>
+          <summary>날짜 직접 선택</summary>
           <div class="range-fine-controls">
             <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
               ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
               ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
-            </div>
-            <div class="range-steps" role="group" aria-label="기간 일주일 단위로 미세 조정">
-              ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label} 1주씩</span><button type="button" data-step-end="${end}" data-step="-7" aria-label="${label} 일주일 전">−7일</button><button type="button" data-step-end="${end}" data-step="7" aria-label="${label} 일주일 후">+7일</button></div>`).join("")}
             </div>
           </div>
         </details>
@@ -75,7 +77,7 @@ function rangeBox({ units = false } = {}) {
     </details>
   </section>
   <div class="range-float" aria-label="기간" role="group">
-    <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></p>
+    <p class="range-dates"><b class="fig" data-label="from">${esc(rangeDate(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(rangeDate(w.to))}</b></p>
     ${sliderBox(t, w)}
   </div>`;
 }
@@ -87,7 +89,7 @@ function priceStatusBar() {
   const errors = status.errors.length ? (window.saFamily
     ? `<span>시세 수집 실패 ${status.errors.length}건</span>`
     : `<details><summary>시세 수집 실패 ${status.errors.length}건</summary><p>${esc(status.errors.join(", "))}</p></details>`) : "";
-  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격 날짜는 보유 목록에 별도 표시</span>${errors}</aside>`;
+  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격일은 보유 목록에서 확인</span>${errors}</aside>`;
 }
 
 const TOP = 64; // 위 막대 높이(56) + 여유
@@ -131,8 +133,8 @@ function bindRange() {
     view.querySelectorAll('[data-date="to"]').forEach(x => { x.value = t[b]; });
     view.querySelectorAll('[data-date-value="from"]').forEach(x => { x.textContent = t[a].replaceAll("-", "."); });
     view.querySelectorAll('[data-date-value="to"]').forEach(x => { x.textContent = t[b].replaceAll("-", "."); });
-    view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = dayText(t[a]); });
-    view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = dayText(t[b]); });
+    view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = rangeDate(t[a]); });
+    view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = rangeDate(t[b]); });
   };
   // 손잡이를 잡는 순간 아이폰 사파리는 그 입력칸을 "보이게" 하려고 화면을 끌어올린다.
   // 끄는 동안에는 페이지가 움직일 이유가 없으니, 잡은 자리에서 벗어나면 바로 되돌린다.
@@ -275,6 +277,9 @@ function paintTrends(m, t) {
       <p class="ln-key"><span><i class="k-v"></i>평가액</span><span><i class="k-p"></i>투자원금(기초 + 입출금)</span></p>
       ${legend}
       ${inU && el.dataset.trend === "0" ? `<p class="hint">달러 기준: 날마다 그날 환율로 평가액과 입출금을 달러로 바꿔 잽니다. 원화 현금·국내 종목은 환율이 오르면 달러로는 손실이고, 미국 종목의 환차익은 빠집니다.</p>` : ""}
+      <p class="perf-baseline hint">${sum.from < w.from
+        ? `선택 시작일 ${esc(rangeDate(w.from))}의 손익까지 포함하도록 전일 종가(${esc(rangeDate(sum.from))})를 기초로 계산합니다.`
+        : `기록 시작일 ${esc(rangeDate(sum.from))} 평가액을 기초로 계산합니다.`}</p>
       <dl class="facts perf-facts">
         <div><dt>기초 평가금액 <small>${esc(dayText(sum.from))}</small></dt><dd class="fig">${full(sum.base)}</dd></div>
         <div><dt>기말 평가금액 <small>${esc(dayText(sum.to))}</small></dt><dd class="fig">${full(sum.end)}</dd></div>
@@ -339,7 +344,7 @@ function holdBlock(v) {
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 일부 없어 현재 평가총액을 계산하지 못했습니다. 시세판에서 수집을 확인해 주세요.";
   const expo = v.on ? null : v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<div class="split">
-      ${v.total && slices.length > 1 && v.cash != null && v.rows.every(r => r.value != null) ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
+      ${v.total && slices.length && v.cash != null && v.rows.every(r => r.value != null) ? donut(slices, { size: 180, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
       <ul class="holds">${rows || (v.cash > 0 || v.cashMissingFx ? "" : `<li class="hint">그날은 이 계좌에 들고 있던 것이 없습니다.</li>`)}${cashRow}</ul>
     </div>
     <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>`;
@@ -347,10 +352,11 @@ function holdBlock(v) {
 
 // 계좌 칸: 이름·평가액, 성과 추이, 목표, 보유종목 구성. 구성(data-hold)과 평가액(data-total)은 끝날을 옮기면 그 자리에서 바뀐다
 // (live: 성과 추이 끝에 붙일 지금 평가액은 끝날과 상관없이 지금 값)
-function accountPanel(v, color, { trendKey = null, now = undefined, live = v } = {}) {
+function accountPanel(v, color, { trendKey = null, now = undefined, live = v, context = "" } = {}) {
   const { a, key } = v;
   return `<section class="panel account" data-key="${esc(key)}">
     ${head(key === "all" ? (window.saFamily ? "공유 자산 합계" : "선택 계좌 합계") : a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}<span data-total>${amt(v.total)}</span></b>`)}
+    ${context ? `<p class="account-selection" aria-label="현재 선택한 계좌">${esc(context)}</p>` : ""}
     ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
     ${trend(trendKey ?? key, now !== undefined ? now : live.live ? { [key]: live.total } : null, a.label || key)}
     ${goalBlock(a)}${limitBlock(a, live)}
@@ -423,10 +429,10 @@ function renderGroup() {
   // 단일 계좌면 해당 계좌의 목표·위험자산 한도까지, 복수면 통합 성과를 한 칸에 표시한다.
   const panelOf = () => keys.length === 1
     ? accountPanel(selectedView(), color[keys[0]], { live: live[0] })
-    : accountPanel(selectedView(), null, { trendKey: keys, now: nowAll, live: mergedView(live) });
+    : accountPanel(selectedView(), null, { trendKey: keys, now: nowAll, live: mergedView(live), context: keys.map(accountShort).join(" · ") });
   trends = [];
   view.innerHTML = `
-    ${fam ? `<aside class="family-banner"><b>공유 보기</b><span>주 계좌와 비트코인만 표시합니다.</span><a href="./?view=all">개인 보기 전환</a></aside>` : ""}
+    ${fam ? `<aside class="family-banner"><b>공유용 표시 모드</b><span>주 계좌·비트코인만 화면에 표시합니다. 별도의 데이터 접근 권한을 제공하는 공유 링크는 아닙니다.</span><a href="./?view=all">개인 보기 전환</a></aside>` : ""}
     ${priceStatusBar()}
     <div class="account-filter" role="group" aria-label="합계와 추이에 포함할 계좌">
       <span class="account-filter-title">포함할 계좌</span>
@@ -500,19 +506,20 @@ function levelCard(it, today) {
   </section>`;
 }
 
-export function renderLevels() {
+export function renderLevels(focusCode = "") {
   const m = state.model;
-  const items = levelItems();
+  const items = focusCode ? levelItems().filter(it => it.code === focusCode) : levelItems();
   const keys = ACCOUNT_ORDER.filter(k => items.some(it => it.account === k));
   if (levelAcct !== "all" && !keys.includes(levelAcct)) levelAcct = "all";
   const today = todayKST();
   const shown = keys.filter(k => levelAcct === "all" || k === levelAcct);
   view.innerHTML = `
     ${subtabs(MARKET_TABS, "levels")}
+    ${focusCode ? `<a class="back" href="#/market/levels">${icon("back")}전체 관심가 보기</a>` : ""}
     <p class="lede">가격이나 날짜에 닿으면 GitHub 이슈로 알림이 옵니다.${m.alertState?.checked_at ? ` 마지막 점검 ${dateLabel(new Date(m.alertState.checked_at))}.` : ""}</p>
     ${chips([["all", "전체"], ...keys.map(k => [k, accountShort(k)])], levelAcct, "계좌")}
     ${shown.map(k => `<section class="group"><h2>${esc(accountLabel(k))}</h2><div class="cards">${items.filter(it => it.account === k).map(it => levelCard(it, today)).join("")}</div></section>`).join("")
-      || `<p class="none">걸어 둔 관심가가 없습니다.</p>`}
+      || `<p class="none">${focusCode ? `${esc(focusCode)}의 관심가가 없습니다.` : "걸어 둔 관심가가 없습니다."}</p>`}
     ${m.alerts?.proceeds ? `<p class="hint foot">${esc(m.alerts.proceeds)}</p>` : ""}`;
   bindChips(v => { levelAcct = v; renderLevels(); });
 }

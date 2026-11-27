@@ -36,7 +36,7 @@ export function dayText(d) {
 const charts = new Map();
 let seq = 0;
 
-export function line(points, { height = 150, fmt = String, marks = [], label = "" } = {}) {
+export function line(points, { height = 240, fmt = String, marks = [], label = "" } = {}) {
   const id = `ln${++seq}`;
   const vals = points.map(p => p.v).filter(v => v != null);
   if (vals.length < 2) return `<p class="hint">추이를 그릴 만큼 기록이 아직 없습니다.</p>`;
