@@ -7,31 +7,61 @@ const PREMORTEM = { skip: "생략", pass: "통과", revise: "계획 수정", blo
 
 /* ---------- 판단 목록 ---------- */
 let acct = "all";
+let query = "";
+
+function matchedRuns() {
+  const q = query.trim().toLocaleLowerCase("ko");
+  return shownRuns().filter(r => {
+    if (acct !== "all" && r.accountKey !== acct) return false;
+    if (!q) return true;
+    const decision = DEC[r.dec?.decision]?.label || "";
+    const day = r.at?.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }) || "";
+    return [r.name, r.symbol, accountLabel(r.accountKey), day,
+      day.slice(5).replace("-", "/"), day.slice(5).replace("-", "."), dateLabel(r.at, false), decision]
+      .join(" ").toLocaleLowerCase("ko").includes(q);
+  });
+}
+
+function renderRunResults() {
+  const matches = matchedRuns();
+  const days = new Map();
+  for (const r of matches) {
+    const k = dateLabel(r.at, false);
+    if (!days.has(k)) days.set(k, []);
+    days.get(k).push(r);
+  }
+  const target = view.querySelector("#run-results");
+  if (!target) return;
+  target.innerHTML = [...days].map(([d, rs]) => `<section class="day"><h2>${esc(d)}</h2><div class="panel rows">${rs.map(r => runRow(r, { time: true })).join("")}</div></section>`).join("")
+    || `<p class="none">${query.trim() ? "불러온 판단에서 검색 결과가 없습니다. 검색어를 바꾸거나 이전 판단을 더 불러오세요." : "불러온 판단 중에는 이 계좌의 판단이 없습니다."}</p>`;
+  view.querySelector("#run-search-summary").textContent = `전체 ${state.model.doneIds.length}건 · 불러온 ${shownRuns().length}건 중 ${matches.length}건 표시${moreLeft() ? " · 이전 판단은 아래에서 추가로 불러올 수 있습니다." : ""}`;
+}
+
 export function renderRuns() {
   const m = state.model;
   const done = shownRuns();
   const keys = ACCOUNT_ORDER.filter(k => done.some(r => r.accountKey === k));
   if (acct !== "all" && !keys.includes(acct)) acct = "all";
-  const list = done.filter(r => acct === "all" || r.accountKey === acct);
-  const days = new Map();
-  for (const r of list) {
-    const k = dateLabel(r.at, false);
-    if (!days.has(k)) days.set(k, []);
-    days.get(k).push(r);
-  }
   const left = moreLeft();
   view.innerHTML = `
     ${subtabs(TABS, "runs")}
     <div class="log-intro"><h1>지난 판단</h1><p class="hint">실행 계획과 결과는 날짜별 기록에서 확인합니다. 현재 확인할 주문·관심가는 오늘에 모았습니다.</p></div>
     ${chips([["all", "전체"], ...keys.map(k => [k, accountShort(k)])], acct, "계좌")}
-    <p class="hint foot">${left ? `최근 판단 ${done.length}건을 불러왔습니다. 전체 ${m.doneIds.length}건.` : `판단 ${m.doneIds.length}건을 모두 불러왔습니다.`}</p>
-    ${[...days].map(([d, rs]) => `<section class="day"><h2>${esc(d)}</h2><div class="panel rows">${rs.map(r => runRow(r, { time: true })).join("")}</div></section>`).join("")
-      || `<p class="none">불러온 판단 중에는 이 계좌의 판단이 없습니다.</p>`}
+    <div class="log-search">
+      <label for="run-search">판단 검색</label>
+      <input id="run-search" type="search" inputmode="search" autocomplete="off" placeholder="종목·티커·날짜 검색" aria-controls="run-results" aria-describedby="run-search-summary" />
+    </div>
+    <p class="hint foot" id="run-search-summary" role="status" aria-live="polite"></p>
+    <div class="run-results" id="run-results"></div>
     ${left ? `<button class="btn btn-ghost" type="button" id="more-runs">이전 판단 ${Math.min(left, MORE_PAGE)}건 더 불러오기</button>` : ""}
     ${m.collectOnly || m.refCount ? `<p class="hint foot">${[
       m.refCount ? `궁금해서 돌린 참고용 판단 ${m.refCount}건` : "",
       m.collectOnly ? `데이터만 모으고 판단까지 가지 않은 실행 ${m.collectOnly}건` : "",
     ].filter(Boolean).join("과 ")}은 뺐습니다.</p>` : ""}`;
+  const search = view.querySelector("#run-search");
+  search.value = query;
+  search.addEventListener("input", () => { query = search.value; renderRunResults(); });
+  renderRunResults();
   bindChips(v => { acct = v; renderRuns(); });
   const more = document.getElementById("more-runs");
   more?.addEventListener("click", async () => {
@@ -157,15 +187,17 @@ export async function renderRun(id) {
       </div>
       <article class="panel report" id="report"><p class="none">리포트를 불러오는 중…</p></article>
     </div>`;
+  const runShell = view.querySelector(".run");
+  const rep = runShell.querySelector("#report");
+  const checksNode = runShell.querySelector("#checks");
   const [md, checks] = await Promise.all([
     state.repo.text(`runs/${id}/report.md`).catch(() => null),
     state.repo.json(`runs/${id}/checks.json`).catch(() => null),
   ]);
-  const rep = document.getElementById("report");
-  if (!rep || !rep.isConnected) return; // 불러오는 사이 다른 화면으로 넘어감
+  if (!runShell.isConnected || location.hash !== `#/run/${encodeURIComponent(id)}`) return; // 다른 판단으로 바뀌면 오래된 응답을 폐기
   if (Array.isArray(checks) && checks.length) {
     const bad = checks.filter(c => !c.ok);
-    document.getElementById("checks").innerHTML = `<details class="panel checks" ${bad.length ? "open" : ""}>
+    checksNode.innerHTML = `<details class="panel checks" ${bad.length ? "open" : ""}>
       <summary><h2>최종 점검</h2><span class="${bad.length ? "tone-warn" : "hint"}">${bad.length ? `확인 필요 ${bad.length}건` : `${checks.length}개 모두 통과`}</span></summary>
       <ul>${checks.map(c => `<li class="${c.ok ? "ok" : "bad"}">${icon(c.ok ? "ok" : "warn")}<span><b>${esc(c.item)}</b>${c.detail ? ` ${esc(c.detail)}` : ""}</span></li>`).join("")}</ul>
     </details>`;
