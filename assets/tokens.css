@@ -43,6 +43,7 @@
   --flat: #a0a5ad;
   --accent: #ff783d;
   --accent-ink: #120800;
+  --warn: #ffe078;
   --line-strong: #77818f;
 }
 :root[data-palette="cobalt"] {  /* 코발트 옐로: Cobalt Night 60 · Black Navy 30 · Signal Yellow 10. 바탕이 파래서 하락 파랑을 밝게 */
