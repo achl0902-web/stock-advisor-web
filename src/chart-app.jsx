@@ -738,7 +738,7 @@ function StockBoardApp() {
       children: jsxs("div", {
         className: "empty-card",
         children: [
-          jsx("h1", { className: "brand", children: "시세판" }),
+          jsx("h1", { className: "brand", children: "시장" }),
           e === "loading" &&
             jsx("p", {
               children:
@@ -771,7 +771,7 @@ function StockBoardApp() {
       jsxs("header", {
         className: "top",
         children: [
-          jsx("h1", { className: "brand", children: "시세판" }),
+          jsx("h1", { className: "brand", children: "시장" }),
           jsxs("div", {
             className: "top-right",
             children: [
@@ -814,8 +814,8 @@ function StockBoardApp() {
               !window.saFamily &&
                 jsx("a", {
                   className: "btn",
-                  href: "log.html",
-                  children: "판단 일지",
+                  href: "log.html#/today",
+                  children: "오늘",
                 }),
             ],
           }),
@@ -823,6 +823,13 @@ function StockBoardApp() {
       }),
       i && jsx("p", { className: "alert", role: "alert", children: i }),
       jsx(MacroTicker, { snap: t, reg: h, active: u, pick: y }),
+      jsxs("div", {
+        className: "market-links",
+        children: [
+          !window.saFamily && jsx("a", { href: "log.html#/market/levels", children: "관심가 전체" }),
+          !window.saFamily && jsx("a", { href: "log.html#/market/etf", children: "ETF 구성 감시" }),
+        ],
+      }),
       jsxs("div", {
         className: "main",
         children: [

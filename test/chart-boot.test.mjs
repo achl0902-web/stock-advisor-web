@@ -26,9 +26,9 @@ test("재생성된 시세판 번들은 초기 화면에서 런타임 오류 없�
     const bundle = readFileSync(new URL("../assets/sise.js", import.meta.url), "utf8");
     window.eval(bundle);
     await new Promise(resolve => setTimeout(resolve, 100));
-    assert.match(window.document.querySelector("#root").textContent, /시세판/);
+    assert.match(window.document.querySelector("#root").textContent, /시장/);
     assert.match(window.document.querySelector("#root").textContent, /토큰/);
-    assert.equal(window.document.querySelector("h1.brand")?.textContent, "시세판");
+    assert.equal(window.document.querySelector("h1.brand")?.textContent, "시장");
     assert.deepEqual(errors, []);
   } finally {
     dom.window.close();

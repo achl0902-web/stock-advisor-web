@@ -1,12 +1,13 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
 import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries, quoteStatus } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
+import { comparisonData, comparisonChart, bindComparison } from "./asset-compare.js";
 import { normalizeDateRange, shiftDateIndexByDays } from "./date-range.js";
 import { mergedView } from "./portfolio-merge.js";
 import { inline, markdown } from "./md.js";
-import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, LOG_TABS } from "./ui.js";
+import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, MARKET_TABS } from "./ui.js";
 
-const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/pension", "연금", "pension"], ["#/assets/crypto", "코인", "crypto"]];
+const TABS = [["#/assets", "통합", "accounts"], ["#/assets/pension", "DC 상세", "pension"], ["#/assets/crypto", "코인 상세", "crypto"]];
 
 /* ---------- 계좌: 위에 기간(버튼·슬라이더), 투자성과와 평가액 추이, 계좌 구성 도넛, 고른 계좌의 성과·종목 구성 ---------- */
 const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
@@ -251,6 +252,7 @@ function drawTrends() {
   if (!t?.length) return;
   keepPlace(() => {
     paintTrends(m, t);
+    drawComparison();
     const i = asOfIdx();
     if (holds && i !== holdsAt) { holdsAt = i; holds(); }
   });
@@ -349,7 +351,7 @@ function holdBlock(v) {
 function accountPanel(v, color, { trendKey = null, now = undefined, live = v } = {}) {
   const { a, key } = v;
   return `<section class="panel account" data-key="${esc(key)}">
-    ${head(a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}<span data-total>${amt(v.total)}</span></b>`)}
+    ${head(key === "all" ? (window.saFamily ? "공유 자산 합계" : "운용 계좌 합계") : a.label || key, `<b class="fig total">${color ? `<i class="sw" style="background:${color}"></i>` : ""}<span data-total>${amt(v.total)}</span></b>`)}
     ${a.purpose ? `<details class="purpose"><summary>${esc(a.purpose.split(/(?<=다\.)\s/)[0])}</summary><p>${esc(a.purpose)}</p></details>` : ""}
     ${trend(trendKey ?? key, now !== undefined ? now : live.live ? { [key]: live.total } : null, a.label || key)}
     ${goalBlock(a)}${limitBlock(a, live)}
@@ -367,6 +369,70 @@ function refreshPanel(panel, v) {
 export const renderAccounts = () => renderGroup();
 
 const colorOf = k => SERIES[accountKeys(state.model.accounts).indexOf(k) % SERIES.length]; // 같은 계좌는 어느 탭에서나 같은 색
+
+// 통합 자산 추이: 계좌별 선 / 선택 합계 / 입출금 보정 수익률. 기본은 주 계좌와 바이오.
+const compared = new Set();
+let comparedReady = false;
+let compareMode = "accounts";
+const COMPARE_ORDER = ["main", "bio", "pension", "crypto"];
+function compareKeys() {
+  const keys = COMPARE_ORDER.filter(k => state.model.accounts[k]?.holdings);
+  if (window.saFamily) return keys.filter(k => k === "main" || k === "crypto");
+  return keys;
+}
+function drawComparison() {
+  const box = view.querySelector("[data-comparison]");
+  if (!box) return;
+  const keys = compareKeys();
+  if (!comparedReady) {
+    comparedReady = true;
+    for (const k of (window.saFamily ? ["main", "crypto"] : ["main", "bio"])) if (keys.includes(k)) compared.add(k);
+  }
+  for (const k of [...compared]) if (!keys.includes(k)) compared.delete(k);
+  if (!compared.size && keys.length) compared.add(keys[0]);
+  const selected = keys.filter(k => compared.has(k));
+  const col = Object.fromEntries(keys.map(k => [k, colorOf(k)]));
+  col.all = "var(--accent)";
+  const names = Object.fromEntries(keys.map(k => [k, accountShort(k)]));
+  names.all = "선택 합계";
+  const t = state.model.worth?.t;
+  if (!t?.length || !selected.length) {
+    box.innerHTML = `${head("통합 자산 추이")}<p class="hint">아직 자산 평가 이력이 없습니다.</p>`;
+    return;
+  }
+  const live = Object.fromEntries(selected.map(k => {
+    const a = accountView(k);
+    return [k, a.live ? a.total : null];
+  }));
+  const fx = state.model.fx;
+  const inU = usd();
+  const liveValue = inU ? (fx ? Object.fromEntries(Object.entries(live).map(([k, v]) => [k, v == null ? null : v / fx])) : null) : live;
+  const data = comparisonData(inU ? inUsd(state.model.worth) : state.model.worth, selected, presetWindow(t), liveValue, compareMode);
+  const fmt = compareMode === "returns" ? v => pct(v, 1) : inU ? usdShort : krwShort;
+  const selectedViews = selected.map(viewAt);
+  const v = selected.map((k, i) => ({ key: k, value: selectedViews[i].total, label: accountShort(k), color: col[k] }));
+  const bases = new Set(selectedViews.map(a => a.on ? `history:${a.on}` : a.fallbackWorthDate ? `history:${a.fallbackWorthDate}` : a.live ? "live" : "unknown"));
+  const complete = bases.size === 1 && !bases.has("unknown") && v.every(x => Number.isFinite(x.value));
+  const sum = complete ? v.reduce((n, x) => n + x.value, 0) : null;
+  box.innerHTML = `${head("통합 자산 추이", `<span class="hint">선택 계좌 ${selected.length}개</span>`)}
+    <div class="compare-picks" role="group" aria-label="추이에 포함할 계좌">${keys.map(k => `<button type="button" class="compare-pick" data-compare-key="${k}" aria-pressed="${compared.has(k)}"><i style="background:${col[k]}"></i>${esc(accountShort(k))}</button>`).join("")}</div>
+    <div class="seg compare-modes" role="group" aria-label="추이 표시 방식">${[["accounts", "계좌별"], ["total", "선택 합계"], ["returns", "수익률"]].map(([mode, label]) => `<button type="button" data-compare-mode="${mode}" aria-pressed="${compareMode === mode}">${label}</button>`).join("")}</div>
+    <div class="compare-content"><div class="compare-chart">${comparisonChart(data, names, col, { mode: compareMode, fmt })}</div>
+      <div class="compare-composition">${complete ? donut(v, { center: krwShort(sum), sub: `${selected.length}개 계좌` }) : `<p class="hint">선택한 계좌 중 평가액을 확인하지 못한 항목이 있습니다.</p>`}
+        <p class="hint">선택 계좌 구성 · 원화 평가액 기준</p></div></div>
+    <p class="hint compare-note">${compareMode === "returns" ? "각 계좌의 일별 입출금을 제외해 복리로 연결한 수익률입니다. 최초 평가 기록을 0%로 놓으며, 거래내역·평가 자료가 불완전하면 실제 성과와 다를 수 있습니다." : "평가액은 입출금의 영향을 받습니다. 비교 시 순수 운용성과는 ‘수익률’에서 확인하세요."}</p>`;
+  box.querySelectorAll("[data-compare-key]").forEach(button => button.addEventListener("click", () => {
+    const k = button.dataset.compareKey;
+    if (compared.has(k)) { if (compared.size === 1) return; compared.delete(k); }
+    else compared.add(k);
+    drawComparison();
+  }));
+  box.querySelectorAll("[data-compare-mode]").forEach(button => button.addEventListener("click", () => {
+    compareMode = button.dataset.compareMode;
+    drawComparison();
+  }));
+  bindComparison(box, data, names, fmt);
+}
 
 // 추이를 무엇으로 계산했는지: 거래내역이 있는 계좌는 그 기간, 나머지는 계좌 설정 변경 기록부터
 const topic = w => w + ((w.charCodeAt(w.length - 1) - 0xac00) % 28 ? "은" : "는"); // 받침에 따라 은·는
@@ -421,7 +487,7 @@ function renderGroup() {
   // 계좌 구성(도넛·고르기 단추)
   const comp = vs => {
     const all = mergedView(vs).total, on = vs.find(v => v.on)?.on;
-    return `${head("계좌 구성", `<span class="hint">${on ? `${esc(dayText(on))} 기준` : "눌러서 계좌 보기"}</span>`)}
+    return `${head(fam ? "공유 자산 구성" : "운용 계좌 구성", `<span class="hint">${on ? `${esc(dayText(on))} 기준` : "눌러서 계좌 보기"}</span>`)}
           <div class="split">
             ${all ? donut(vs.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: short(all), krw: all, sub: `${vs.length}개 계좌`, picked: picked[tab] }) : ""}
             <div class="picker" role="group" aria-label="계좌"><button type="button" data-acc="all" aria-pressed="${picked[tab] === "all"}">
@@ -433,9 +499,11 @@ function renderGroup() {
   };
   trends = [];
   view.innerHTML = `
+    ${fam ? `<aside class="family-banner"><b>공유 보기</b><span>주 계좌와 비트코인만 표시합니다.</span><a href="./?view=all">개인 보기 전환</a></aside>` : ""}
     ${fam ? "" : subtabs(TABS, tab)}
     ${priceStatusBar()}
     ${rangeBox({ units: true })}
+    <section class="panel asset-comparison" data-comparison></section>
     <div class="accounts">
       <div class="col">
         <section class="panel" data-comp>${comp(views())}</section>
@@ -523,7 +591,7 @@ export function renderLevels() {
   const today = todayKST();
   const shown = keys.filter(k => levelAcct === "all" || k === levelAcct);
   view.innerHTML = `
-    ${subtabs(LOG_TABS, "levels")}
+    ${subtabs(MARKET_TABS, "levels")}
     <p class="lede">가격이나 날짜에 닿으면 GitHub 이슈로 알림이 옵니다.${m.alertState?.checked_at ? ` 마지막 점검 ${dateLabel(new Date(m.alertState.checked_at))}.` : ""}</p>
     ${chips([["all", "전체"], ...keys.map(k => [k, accountShort(k)])], levelAcct, "계좌")}
     ${shown.map(k => `<section class="group"><h2>${esc(accountLabel(k))}</h2><div class="cards">${items.filter(it => it.account === k).map(it => levelCard(it, today)).join("")}</div></section>`).join("")
@@ -552,15 +620,15 @@ function parseRebalLog(md) {
 const KIND = { "신규 편입": "in", "전량 편출": "out", "비중 확대": "in", "비중 축소": "out" };
 let etfAll = false;
 export async function renderEtf() {
-  view.innerHTML = `${subtabs(LOG_TABS, "etf")}<p class="none">불러오는 중…</p>`;
+  view.innerHTML = `${subtabs(MARKET_TABS, "etf")}<p class="none">불러오는 중…</p>`;
   const repo = state.repo;
   const code = repo.list("etfwatch/reports/").map(p => p.match(/(\w+)\.md$/)?.[1]).find(c => c && !c.includes("_")) || "426020";
   const [md, ev] = await Promise.all([
     repo.text(`etfwatch/reports/${code}.md`).catch(() => null),
     repo.text(`etfwatch/reports/${code}_eval.md`).catch(() => null),
   ]);
-  if (!view.querySelector('.seg [aria-current][href="#/log/etf"]')) return; // 불러오는 사이 다른 화면으로 넘어감
-  if (!md) { view.innerHTML = `${subtabs(LOG_TABS, "etf")}<p class="none">감시 리포트가 없습니다.</p>`; return; }
+  if (!view.querySelector('.seg [aria-current][href="#/market/etf"]')) return; // 불러오는 사이 다른 화면으로 넘어감
+  if (!md) { view.innerHTML = `${subtabs(MARKET_TABS, "etf")}<p class="none">감시 리포트가 없습니다.</p>`; return; }
   const title = md.match(/^# (.*)$/m)?.[1]?.replace(/ 구성 변경 이력$/, "") || code;
   const dataLine = md.match(/^- 데이터: (.*)$/m)?.[1] || "";
   const log = parseRebalLog(md);
@@ -568,7 +636,7 @@ export async function renderEtf() {
   const evPeriods = ev ? (ev.split(/^## 기간별.*$/m)[1] || "").split(/^## /m)[0] : "";
   const evSummary = ev ? (ev.match(/^- 리밸런싱 \d+회.*$/gm) || []) : [];
   view.innerHTML = `
-    ${subtabs(LOG_TABS, "etf")}
+    ${subtabs(MARKET_TABS, "etf")}
     <header class="worth"><span>${esc(dataLine)}</span><b>${esc(title)}</b></header>
     <p class="lede">하루 회전율이 4%를 넘거나 큰 종목 교체가 3건 이상이면 GitHub 이슈로 알립니다.</p>
     <div class="etf">

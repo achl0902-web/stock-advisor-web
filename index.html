@@ -9,8 +9,8 @@
 <meta name="theme-color" content="#000000">
 <meta name="color-scheme" content="dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="시세판">
-<title>시세판</title>
+<meta name="apple-mobile-web-app-title" content="나의 투자">
+<title>시장 · 나의 투자</title>
 <script src="assets/theme.js"></script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
@@ -64,6 +64,9 @@ html { scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0p
 .tape { overflow-x: auto; scrollbar-width: none; margin-inline: -4px; padding-inline: 4px; scroll-snap-type: x proximity; }
 .tape::-webkit-scrollbar { display: none; }
 .tape-track { display: flex; gap: 6px; width: max-content; }
+.market-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.market-links a { display: inline-flex; min-height: 36px; align-items: center; padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 9px; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--sub); }
+.market-links a:focus-visible, .market-links a:hover { color: var(--accent); border-color: var(--accent); }
 .tick { scroll-snap-align: start; width: 132px; display: grid; gap: 1px; padding: 8px 10px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; transition: border-color .15s; }
 .tick:hover { border-color: var(--sub); }
 .tick.is-active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
@@ -242,11 +245,9 @@ html { scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0p
 </style>
 </head>
 <body>
-<section id="home" aria-label="오늘 볼 것"></section>
 <div id="root"></div>
 <nav id="tabbar" class="tabbar" aria-label="화면" data-current="sise"></nav>
 <script src="assets/nav.js"></script>
 <script src="assets/sise.js"></script>
-<script type="module" src="assets/home.js"></script>
 </body>
 </html>
