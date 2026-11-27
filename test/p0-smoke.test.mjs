@@ -48,6 +48,7 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     from.value = "2";
     from.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     assert.equal(root.querySelector('[data-label="from"]').textContent, "11/26");
+    assert.equal(root.querySelector('.range .slider input[data-end="from"]').getAttribute("aria-valuetext"), "11/26", "스크린리더에 기록 인덱스 대신 날짜 전달");
     assert.equal(root.querySelector('[data-period="all"]').getAttribute("aria-pressed"), "false");
     assert.notEqual(root.querySelector(".account .perf b").textContent, pnlBefore, "슬라이더 움직임이 기간 투자손익에 반영됨");
     assert.match(root.querySelector(".account").textContent, /투자수익률/);

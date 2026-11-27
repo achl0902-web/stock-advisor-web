@@ -61,7 +61,8 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
   // 점은 SVG가 가로로 늘어나도 동그랗게 남도록 HTML로 얹는다
   const pos = i => `left:${(x(i) / W * 100).toFixed(2)}%;top:${(y(points[i].v) / H * 100).toFixed(2)}%`;
   charts.set(id, { points, fmt, marks, W, H, xs: points.map((_, i) => x(i)), ys: points.map(p => p.v == null ? null : y(p.v)) });
-  return `<div class="line" data-line="${id}">
+  const latest = points[last];
+  return `<div class="line" data-line="${id}" role="group" aria-label="${esc(label)}. 날짜를 터치하거나 좌우 방향키로 탐색할 수 있습니다.">
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}">
       ${grid.map(g => `<line class="ln-grid" x1="${pad.l}" x2="${W - pad.r}" y1="${g}" y2="${g}"/>`).join("")}
       ${runs.map(r => `<path class="ln-area" d="${area(r)}"/>`).join("")}
@@ -75,6 +76,11 @@ export function line(points, { height = 150, fmt = String, marks = [], label = "
     <span class="ln-x"><span>${dayText(points[0].t)}</span><span>${dayText(points[last].t)}</span></span>
     <span class="ln-y"><span class="fig">${esc(fmt(hi - span * 0.12))}</span><span class="fig">${esc(fmt(lo + span * 0.12))}</span></span>
     <output class="ln-tip" hidden></output>
+  </div>
+  <div class="ln-inspect" role="group" aria-label="차트 기록 날짜 탐색">
+    <button type="button" data-line-step="-1" aria-label="이전 기록 날짜">이전</button>
+    <output class="ln-selected" aria-live="polite" aria-atomic="true"><span>${esc(dayText(latest.t))}</span><b class="fig">${esc(fmt(latest.v))}</b>${latest.p != null ? `<small class="fig">원금 ${esc(fmt(latest.p))}</small>` : ""}</output>
+    <button type="button" data-line-step="1" aria-label="다음 기록 날짜" disabled>다음</button>
   </div>`;
 }
 
@@ -86,10 +92,20 @@ export function bindLines(root) {
     const c = charts.get(el.dataset.line);
     if (!c) return;
     const svg = el.querySelector("svg"), cross = el.querySelector(".ln-cross"), dot = el.querySelector(".ln-dot"), tip = el.querySelector(".ln-tip");
-    let idx = null;
+    const inspector = el.nextElementSibling;
+    const output = inspector?.querySelector(".ln-selected");
+    const prev = inspector?.querySelector('[data-line-step="-1"]');
+    const next = inspector?.querySelector('[data-line-step="1"]');
+    const valid = c.points.map((p, i) => p.v == null ? -1 : i).filter(i => i >= 0);
+    if (!valid.length) return;
+    let idx = valid.at(-1);
+    const step = direction => {
+      const nextIdx = direction < 0 ? valid.findLast(i => i < idx) : valid.find(i => i > idx);
+      if (nextIdx != null) show(nextIdx);
+    };
     const show = i => {
-      while (i >= 0 && c.points[i].v == null) i--;
-      if (i < 0) return;
+      // 비어 있는 날짜는 가까운 유효 거래일로 정렬한다. 이전/다음은 값이 있는 날만 이동한다.
+      if (c.points[i]?.v == null) i = valid.reduce((best, j) => Math.abs(j - i) < Math.abs(best - i) ? j : best);
       idx = i;
       const p = c.points[i], X = c.xs[i];
       cross.setAttribute("x1", X); cross.setAttribute("x2", X);
@@ -106,24 +122,36 @@ export function bindLines(root) {
       tip.append(b, ...(r ? [r] : []), s);
       const left = X / c.W * 100;
       tip.style.left = `${Math.min(82, Math.max(18, left))}%`;
+      if (output) {
+        output.replaceChildren();
+        const date = document.createElement("span"); date.textContent = dayText(p.t);
+        const value = document.createElement("b"); value.className = "fig"; value.textContent = c.fmt(p.v);
+        output.append(date, value);
+        if (p.p != null) { const principal = document.createElement("small"); principal.className = "fig"; principal.textContent = `원금 ${c.fmt(p.p)}`; output.append(principal); }
+      }
+      if (prev) prev.disabled = idx === valid[0];
+      if (next) next.disabled = idx === valid.at(-1);
     };
-    const hide = () => { el.classList.remove("is-on"); tip.hidden = true; dot.hidden = true; idx = null; };
+    const hide = () => { tip.hidden = true; }; // 읽어 둔 날짜와 선택 점은 유지한다.
     const pick = e => {
       const r = svg.getBoundingClientRect();
-      const f = (e.clientX - r.left) / r.width * c.W;
-      let best = 0;
-      c.xs.forEach((X, i) => { if (Math.abs(X - f) < Math.abs(c.xs[best] - f)) best = i; });
-      show(best);
+      if (!r.width) return;
+      const fraction = (e.clientX - r.left) / r.width;
+      show(Math.max(0, Math.min(c.points.length - 1, Math.round(fraction * (c.points.length - 1)))));
     };
-    el.addEventListener("pointermove", pick);
+    el.addEventListener("pointermove", e => { if (e.pointerType !== "touch" || e.buttons === 1) pick(e); });
     el.addEventListener("pointerdown", pick);
     el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") hide(); });
     el.tabIndex = 0;
     el.addEventListener("keydown", e => {
-      if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
       e.preventDefault();
-      show(Math.max(0, Math.min(c.points.length - 1, (idx ?? c.points.length - 1) + (e.key === "ArrowLeft" ? -1 : 1))));
+      if (e.key === "Home") show(valid[0]);
+      else if (e.key === "End") show(valid.at(-1));
+      else step(e.key === "ArrowLeft" ? -1 : 1);
     });
     el.addEventListener("blur", hide);
+    prev?.addEventListener("click", () => step(-1));
+    next?.addEventListener("click", () => step(1));
   });
 }

@@ -39,8 +39,8 @@ function sliderBox(t, w) {
   const at = d => t.length > 1 ? t.indexOf(d) / (t.length - 1) * 100 : 0;
   return `<div class="slider" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
       <span class="slider-track" aria-hidden="true"><i></i></span>
-      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일" ${t.length < 2 ? "disabled" : ""}>
-      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일" ${t.length < 2 ? "disabled" : ""}>
+      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일" aria-valuetext="${esc(dayText(w.from))}" ${t.length < 2 ? "disabled" : ""}>
+      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일" aria-valuetext="${esc(dayText(w.to))}" ${t.length < 2 ? "disabled" : ""}>
     </div>`;
 }
 
@@ -121,8 +121,8 @@ function bindRange() {
   const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
   // 두 막대를 같은 값으로 맞춘다
   const show = (a, b) => {
-    ins("from").forEach(x => { x.value = a; });
-    ins("to").forEach(x => { x.value = b; });
+    ins("from").forEach(x => { x.value = a; x.setAttribute("aria-valuetext", dayText(t[a])); });
+    ins("to").forEach(x => { x.value = b; x.setAttribute("aria-valuetext", dayText(t[b])); });
     view.querySelectorAll(".slider").forEach(box => {
       box.style.setProperty("--a", `${t.length > 1 ? a / (t.length - 1) * 100 : 0}%`);
       box.style.setProperty("--b", `${t.length > 1 ? b / (t.length - 1) * 100 : 0}%`);
