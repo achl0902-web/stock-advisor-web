@@ -738,7 +738,7 @@ function StockBoardApp() {
       children: jsxs("div", {
         className: "empty-card",
         children: [
-          jsx("chartTheme", { className: "brand", children: "시세판" }),
+          jsx("h1", { className: "brand", children: "시세판" }),
           e === "loading" &&
             jsx("p", {
               children:
@@ -771,7 +771,7 @@ function StockBoardApp() {
       jsxs("header", {
         className: "top",
         children: [
-          jsx("chartTheme", { className: "brand", children: "시세판" }),
+          jsx("h1", { className: "brand", children: "시세판" }),
           jsxs("div", {
             className: "top-right",
             children: [

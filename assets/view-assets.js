@@ -1,7 +1,8 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
 import { ACCOUNT_ORDER, state, accountKeys, accountGroup, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries, quoteStatus } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
-import { normalizeDateRange } from "./date-range.js";
+import { normalizeDateRange, shiftDateIndexByDays } from "./date-range.js";
+import { mergedView } from "./portfolio-merge.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, LOG_TABS } from "./ui.js";
 
@@ -88,6 +89,7 @@ function priceStatusBar() {
 
 const TOP = 64; // 위 막대 높이(56) + 여유
 let floatObs = null;
+let floatResizeHandler = null;
 let dragY = null; // 손잡이를 끄는 동안 지켜야 할 스크롤 위치
 addEventListener("scroll", () => { if (dragY != null && Math.abs(scrollY - dragY) > 1) scrollTo(0, dragY); }, { passive: true });
 for (const e of ["pointerup", "pointercancel", "touchend", "touchcancel"]) addEventListener(e, () => { dragY = null; });
@@ -105,7 +107,12 @@ function bindRange() {
   floatObs.observe(bar);
   // 뜨는 막대는 제자리 막대와 같은 가로 자리·폭에 놓는다(넓은 화면의 옆 탭 막대만큼 비켜서)
   const fit = () => { const r = bar.getBoundingClientRect(); float.style.setProperty("--fl", `${r.left}px`); float.style.setProperty("--fw", `${r.width}px`); };
-  onresize = fit;
+  if (floatResizeHandler) removeEventListener("resize", floatResizeHandler);
+  floatResizeHandler = () => {
+    if (!bar.isConnected) { removeEventListener("resize", floatResizeHandler); floatResizeHandler = null; return; }
+    fit();
+  };
+  addEventListener("resize", floatResizeHandler, { passive: true });
   float.inert = true;
 
   const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
@@ -149,8 +156,8 @@ function bindRange() {
     const w = presetWindow(t);
     let a = t.indexOf(w.from), b = t.indexOf(w.to);
     const delta = Number(btn.dataset.step);
-    if (btn.dataset.stepEnd === "from") a = Math.min(Math.max(0, a + delta), Math.max(0, b - 1));
-    else b = Math.max(Math.min(t.length - 1, b + delta), Math.min(t.length - 1, a + 1));
+    if (btn.dataset.stepEnd === "from") a = Math.min(shiftDateIndexByDays(t, a, delta), Math.max(0, b - 1));
+    else b = Math.max(shiftDateIndexByDays(t, b, delta), Math.min(t.length - 1, a + 1));
     customWindow(a, b);
     drawTrends();
   }));
@@ -279,7 +286,9 @@ function paintTrends(m, t) {
 }
 
 function limitBlock(a, v) {
-  if (!a.risk_asset_max_pct || v.cashPct == null) return "";
+  if (!a.risk_asset_max_pct) return "";
+  if (v.cashPct == null || v.rows.some(r => r.weight == null))
+    return `<p class="hint tone-warn">위험자산 비중은 일부 시세·환율이 누락돼 계산 대기 중입니다.</p>`;
   const safe = a.safe_assets || {};
   const safePct = v.rows.filter(r => safe[r.h.symbol]).reduce((s, r) => s + (r.weight || 0), 0);
   const risk = Math.max(0, 100 - safePct - v.cashPct);
@@ -317,16 +326,20 @@ function holdBlock(v) {
     </li>`;
   }).join("");
   const cashText = [a.cash_krw ? money(a.cash_krw, "KRW") : null, a.cash_usd ? money(a.cash_usd, "USD") : null].filter(Boolean).join(", ");
-  const cashRow = v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${amt(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
-  const basis = v.on
+  const cashRow = v.cashMissingFx
+    ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="tone-warn">환율 확인 필요</span></div><div class="hold-sub"><span>${cashText}</span><span>원화 환산·비중 계산 대기</span></div></li>`
+    : v.cash > 0 ? `<li class="hold"><div class="hold-top"><b><i class="sw" style="background:${CASH}"></i>현금</b><span class="fig">${amt(v.cash)}<small>${v.cashPct != null ? nf(1).format(v.cashPct) + "%" : ""}</small></span></div><div class="hold-sub"><span>${cashText}</span></div></li>` : "";
+  const basis = v.mixedBasis ? "계좌별 평가 기준일이 달라 전체 금액을 합산하지 않았습니다. 개별 계좌를 선택해 확인해 주세요."
+    : v.on
     ? `${dayText(v.on)} 종가로 잰 그날 보유입니다(끝 손잡이 날짜). 평단과 수익률도 그날까지의 거래로 계산한 값입니다.`
     : v.live
     ? `최근 확보한 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}. 실시간 가격과 다를 수 있습니다.`
-    : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 없는 종목이 있고 불러온 최근 판단에 이 계좌 분석이 없어 평가액을 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.";
+    : v.fallbackWorthDate ? `시세가 일부 없어 ${esc(dayText(v.fallbackWorthDate))} 자산 이력의 평가총액을 대신 표시합니다. 일부 보유 비중은 확인할 수 없습니다.`
+    : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 일부 없어 현재 평가총액을 계산하지 못했습니다. 시세판에서 수집을 확인해 주세요.";
   const expo = v.on ? null : v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<div class="split">
-      ${v.total && slices.length > 1 ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
-      <ul class="holds">${rows || (v.cash > 0 ? "" : `<li class="hint">그날은 이 계좌에 들고 있던 것이 없습니다.</li>`)}${cashRow}</ul>
+      ${v.total && slices.length > 1 && v.cash != null && v.rows.every(r => r.value != null) ? donut(slices, { size: 132, center: `${v.rows.length}종목`, sub: v.cash > 0 ? "현금 포함" : "" }) : ""}
+      <ul class="holds">${rows || (v.cash > 0 || v.cashMissingFx ? "" : `<li class="hint">그날은 이 계좌에 들고 있던 것이 없습니다.</li>`)}${cashRow}</ul>
     </div>
     <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>`;
 }
@@ -384,28 +397,6 @@ export function renderLongTerm(kind = "pension") {
   holdsAt = asOfIdx();
   bindRange();
   drawTrends();
-}
-
-// 전체: 계좌들의 종목을 종목마다 합친다(수량·평가액은 더하고, 평단은 수량 가중). 현금도 합친다.
-function mergedView(views) {
-  const by = new Map();
-  for (const v of views) for (const r of v.rows) {
-    const x = by.get(r.h.symbol);
-    const cost = r.h.avg_price ? r.h.avg_price * r.h.qty : null;
-    if (!x) { by.set(r.h.symbol, { h: { ...r.h }, q: r.q, value: r.value, cost }); continue; }
-    x.h.qty += r.h.qty;
-    x.value = x.value != null && r.value != null ? x.value + r.value : null;
-    x.cost = x.cost != null && cost != null ? x.cost + cost : null;
-  }
-  const total = views.every(v => v.total != null) ? views.reduce((s, v) => s + v.total, 0) : null;
-  const cash = views.reduce((s, v) => s + (v.cash || 0), 0);
-  const rows = [...by.values()].map(({ h, q, value, cost }) => {
-    h.avg_price = cost != null && h.qty ? cost / h.qty : null;
-    return { h, q, value, pl: q?.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null, weight: total && value != null ? value / total * 100 : null };
-  });
-  const sum = f => views.reduce((s, v) => s + (v.a[f] || 0), 0);
-  const a = { label: "전체 계좌", holdings: rows.map(r => r.h), cash_krw: sum("cash_krw"), cash_usd: sum("cash_usd") };
-  return { key: "all", a, rows, cash, total, live: views.every(v => v.live), cashPct: total ? cash / total * 100 : null, snap: null, on: views.find(v => v.on)?.on };
 }
 
 // 가족 보기는 주 계좌와 코인만 한 화면에(바이오·퇴직연금은 보이지 않게)

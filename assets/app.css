@@ -361,7 +361,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .range-float .range-dates { gap: 4px; }
 @media (prefers-reduced-motion: reduce) { .range-float, .range-float.on { transition: none; } }
 /* 다시 그릴 때 스크롤 보정은 화면 코드가 직접 한다(브라우저 보정과 겹치지 않게) */
-html { overflow-anchor: none; }
+html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 20px); }
 .range .seg { background: var(--raised); }
 .range-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .range-top > :only-child { grid-column: 1 / -1; }
