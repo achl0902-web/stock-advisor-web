@@ -52,7 +52,11 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 @keyframes pulse { 50% { opacity: .3; } }
 .alert { font-size: 12.5px; padding: 8px 12px; border-radius: 9px; background: var(--accent-wash); color: var(--ink); }
 .empty-card a { color: var(--accent); }
-.fresh { display: flex; align-items: center; gap: 6px; color: var(--sub); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.fresh { display: flex; min-width: 0; align-items: flex-start; gap: 6px; color: var(--sub); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.fresh .dot { flex: none; margin-top: 6px; }
+.fresh-times { display: grid; min-width: 0; gap: 1px; line-height: 1.3; }
+.fresh-times span { white-space: nowrap; }
+.fresh-times span + span { font-size: 11px; opacity: .85; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash), 0 0 10px var(--accent); }
 
 /* tape */
