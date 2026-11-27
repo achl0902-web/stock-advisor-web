@@ -7,8 +7,7 @@ import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, MARKET_TABS } from "./ui.js";
 
 
-/* ---------- 계좌: 위에 기간(버튼·슬라이더), 투자성과와 평가액 추이, 계좌 구성 도넛, 고른 계좌의 성과·종목 구성 ---------- */
-const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
+/* ---------- 계좌: 위에 기간(버튼·슬라이더), 선택 계좌의 투자성과·평가액 추이·종목 구성 ---------- */
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
 // 날짜 입력의 iOS 기본 UI는 고유 너비가 커서 카드 밖으로 튀어나온다.
 // 표시 너비는 우리 컨트롤이 담당하고, 투명한 날짜 입력은 터치·키보드·접근성에 그대로 쓴다.
@@ -346,7 +345,7 @@ function holdBlock(v) {
     <p class="hint">${basis}${expo ? ` 레버리지 반영 실효 노출 ${nf(1).format(expo)}%.` : ""}</p>`;
 }
 
-// 계좌 칸: 이름·평가액, 성과 추이, 목표, 구성. 구성(data-hold)과 평가액(data-total)은 끝날을 옮기면 그 자리에서 바뀐다
+// 계좌 칸: 이름·평가액, 성과 추이, 목표, 보유종목 구성. 구성(data-hold)과 평가액(data-total)은 끝날을 옮기면 그 자리에서 바뀐다
 // (live: 성과 추이 끝에 붙일 지금 평가액은 끝날과 상관없이 지금 값)
 function accountPanel(v, color, { trendKey = null, now = undefined, live = v } = {}) {
   const { a, key } = v;
@@ -370,7 +369,7 @@ export const renderAccounts = () => renderGroup();
 
 const colorOf = k => SERIES[accountKeys(state.model.accounts).indexOf(k) % SERIES.length]; // 같은 계좌는 어느 탭에서나 같은 색
 
-// 기존 구성 도넛·성과·평가액 추이에 포함할 계좌만 고른다. 기본은 주 계좌와 바이오.
+// 성과·평가액 추이·보유종목 구성에 포함할 계좌만 고른다. 기본은 주 계좌와 바이오.
 const compared = new Set();
 let comparedReady = false;
 let comparedFamily = null;
@@ -411,36 +410,20 @@ function worthNote(keys) {
 
 // 가족 보기는 주 계좌와 코인만 한 화면에(바이오·퇴직연금은 보이지 않게)
 function renderGroup() {
-  const tab = "accounts";
   const fam = !!window.saFamily;
   const options = compareKeys();
   let keys = selectedKeys();
   if (!keys.length) { view.innerHTML = `<p class="none">계좌가 설정 파일(config/accounts.json)에 없습니다.</p>`; return; }
-  if (picked[tab] !== "all" && !keys.includes(picked[tab])) picked[tab] = "all";
-  const cur = picked[tab];
   const color = Object.fromEntries(options.map(k => [k, colorOf(k)]));
   let live = keys.map(accountView); // 지금 시세(성과 추이 끝의 '지금' 점)
   let nowAll = Object.fromEntries(live.filter(v => v.live).map(v => [v.key, v.total]));
   // 끝날의 구성: 끝 손잡이가 마지막 날이면 지금, 아니면 그날
   const views = () => keys.map(viewAt);
-  const viewOf = (k, vs = views()) => k === "all" ? mergedView(vs) : vs.find(v => v.key === k);
-  // 고른 계좌 칸: 전체는 계좌를 합친 성과·종목, 아니면 그 계좌
-  const panelOf = k => k === "all"
-    ? accountPanel(viewOf(k), null, { trendKey: keys, now: nowAll, live: mergedView(live) })
-    : accountPanel(viewOf(k), color[k], { live: live.find(v => v.key === k) });
-  // 계좌 구성(도넛·고르기 단추)
-  const comp = vs => {
-    const all = mergedView(vs).total, on = vs.find(v => v.on)?.on;
-    return `${head(fam ? "공유 자산 구성" : "선택 계좌 구성", `<span class="hint">${on ? `${esc(dayText(on))} 기준` : "눌러서 계좌 보기"}</span>`)}
-          <div class="split">
-            ${all ? donut(vs.map(v => ({ key: v.key, label: accountShort(v.key), value: v.total || 0, color: color[v.key] })), { center: short(all), krw: all, sub: `${vs.length}개 계좌`, picked: picked[tab] }) : ""}
-            <div class="picker" role="group" aria-label="계좌"><button type="button" data-acc="all" aria-pressed="${picked[tab] === "all"}">
-              <i class="sw sw-all" aria-hidden="true"></i><span>전체</span><b class="fig">${amt(all)}</b><small></small>
-            </button>${vs.map(v => `<button type="button" data-acc="${esc(v.key)}" aria-pressed="${v.key === picked[tab]}">
-              <i class="sw" style="background:${color[v.key]}"></i><span>${esc(accountShort(v.key))}</span><b class="fig">${amt(v.total)}</b><small class="fig">${all && v.total != null ? nf(0).format(v.total / all * 100) + "%" : ""}</small>
-            </button>`).join("")}</div>
-          </div>`;
-  };
+  const selectedView = (vs = views()) => keys.length === 1 ? vs[0] : mergedView(vs);
+  // 단일 계좌면 해당 계좌의 목표·위험자산 한도까지, 복수면 통합 성과를 한 칸에 표시한다.
+  const panelOf = () => keys.length === 1
+    ? accountPanel(selectedView(), color[keys[0]], { live: live[0] })
+    : accountPanel(selectedView(), null, { trendKey: keys, now: nowAll, live: mergedView(live) });
   trends = [];
   view.innerHTML = `
     ${fam ? `<aside class="family-banner"><b>공유 보기</b><span>주 계좌와 비트코인만 표시합니다.</span><a href="./?view=all">개인 보기 전환</a></aside>` : ""}
@@ -451,65 +434,31 @@ function renderGroup() {
     </div>
     ${rangeBox({ units: true })}
     <div class="accounts">
-      ${panelOf(cur)}
-      <div class="col">
-        <section class="panel" data-comp>${comp(views())}</section>
-      </div>
+      ${panelOf()}
     </div>
     ${worthNote(keys)}`;
-  // 포함 계좌를 바꿀 때는 원래 도넛·성과 칸만 갱신한다. 기간 조작 상태와 스크롤을 유지한다.
+  // 포함 계좌를 바꿀 때는 성과 칸만 갱신한다. 기간 조작 상태와 스크롤을 유지한다.
   view.querySelectorAll("[data-compare-key]").forEach(button => button.addEventListener("click", () => {
     const k = button.dataset.compareKey;
     if (compared.has(k)) { if (compared.size === 1) return; compared.delete(k); }
     else compared.add(k);
     keys = selectedKeys();
-    picked[tab] = "all";
     live = keys.map(accountView);
     nowAll = Object.fromEntries(live.filter(v => v.live).map(v => [v.key, v.total]));
     view.querySelectorAll("[data-compare-key]").forEach(x => x.setAttribute("aria-pressed", String(compared.has(x.dataset.compareKey))));
     keepPlace(() => {
-      view.querySelector("[data-comp]").innerHTML = comp(views());
       const panel = view.querySelector(".accounts > .panel.account");
       trends = [];
-      panel.insertAdjacentHTML("afterend", panelOf("all"));
+      panel.insertAdjacentHTML("afterend", panelOf());
       panel.remove();
       const foot = view.querySelector(".foot");
       if (foot) foot.outerHTML = worthNote(keys);
-      bindComp();
       if (state.model.worth?.t?.length) paintTrends(state.model, state.model.worth.t);
     });
   }));
-  // 계좌를 고르면 아래 계좌 칸만 바꿔 끼운다. 화면 전체를 다시 그리면 그리는 사이 페이지가 잠깐 짧아져
-  // 아이폰 사파리가 스크롤을 맨 위쪽으로 끌어올린다. 도넛 조각을 눌러도 같다.
-  const pick = k => {
-    if ((k !== "all" && !keys.includes(k)) || k === picked[tab]) return;
-    picked[tab] = k;
-    view.querySelectorAll("[data-acc]").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.acc === k)));
-    view.querySelectorAll(".donut circle[data-key]").forEach(c => c.classList.toggle("on", c.dataset.key === k));
-    const t = state.model.worth?.t;
-    keepPlace(() => {
-      const panel = view.querySelector(".accounts > .panel.account");
-      trends = []; // 성과 칸은 고른 계좌 칸 하나뿐
-      panel.insertAdjacentHTML("afterend", panelOf(k));
-      panel.remove();
-      if (t?.length) paintTrends(state.model, t);
-    });
-  };
-  const bindComp = () => {
-    view.querySelectorAll("[data-acc]").forEach(b => b.addEventListener("click", () => pick(b.dataset.acc)));
-    view.querySelectorAll("[data-comp] .donut circle[data-key]").forEach(c => {
-      if (!keys.includes(c.dataset.key)) return;
-      c.classList.add("pickable");
-      c.addEventListener("click", () => pick(c.dataset.key));
-    });
-  };
-  bindComp();
-  // 끝 손잡이를 옮기면 계좌 구성과 고른 계좌의 평가액·종목을 그날 것으로
+  // 끝 손잡이를 옮기면 선택 계좌의 평가액·종목도 그날 것으로 변경한다.
   holds = () => {
-    const vs = views();
-    view.querySelector("[data-comp]").innerHTML = comp(vs);
-    bindComp();
-    refreshPanel(view.querySelector(".accounts > .panel.account"), viewOf(picked[tab], vs));
+    refreshPanel(view.querySelector(".accounts > .panel.account"), selectedView());
   };
   holdsAt = asOfIdx();
   bindRange();

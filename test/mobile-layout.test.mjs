@@ -30,3 +30,18 @@ test("모바일 하단 내비게이션은 그래프 위의 떠 있는 알약이 
   assert.doesNotMatch(assets, /\bonresize\s*=/);
   assert.match(assets, /addEventListener\("resize", floatResizeHandler/);
 });
+
+test("320·375·390px 자산 조작부는 한 줄 강제 없이 배치하고 주요 터치 대상으로 44px을 확보한다", () => {
+  const css = readFileSync(new URL("../assets/app.css", import.meta.url), "utf8");
+  const tokens = readFileSync(new URL("../assets/tokens.css", import.meta.url), "utf8");
+  assert.match(css, /\.compare-picks\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(css, /@media \(max-width: 360px\)\s*\{[^}]*\.range-top\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /@media \(max-width: 390px\)\s*\{[^}]*\.account > \.panel-h\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(css, /\.compare-pick\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.compare-pick:focus-visible\s*\{/);
+  assert.match(css, /\.range-fine > summary\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.range-step-pair button\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.slider input::-webkit-slider-thumb\s*\{[^}]*width:\s*44px;\s*height:\s*44px/);
+  assert.match(css, /\.purpose summary\s*\{[^}]*min-height:\s*44px/);
+  assert.match(tokens, /@media \(max-width: 1023px\)[\s\S]*?\.tabbar\s*\{[^}]*height:\s*calc\(var\(--tab-h\) \+ env\(safe-area-inset-bottom, 0px\)\)/);
+});
