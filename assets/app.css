@@ -368,7 +368,10 @@ html { overflow-anchor: none; }
 .seg-unit button { min-width: 40px; padding: 0 10px; }
 .range-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .range-inputs label { display: grid; gap: 4px; min-width: 0; color: var(--sub); font-size: 12px; font-weight: 600; }
-.range-inputs input { width: 100%; min-width: 0; min-height: 44px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--ink); color-scheme: dark; font: 600 15px var(--font-fig); }
+.range-inputs input { display: block; box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; min-height: 44px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); color: var(--ink); color-scheme: dark; font: 600 15px var(--font-fig); }
+.range-inputs input::-webkit-date-and-time-value { min-width: 0; }
+/* iOS Safari의 날짜 선택기는 고유 최소 폭이 크다. 좁은 화면에서는 세로로 배치해 카드 밖으로 밀리지 않게 한다. */
+@media (max-width: 560px) { .range-inputs { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 .range-inputs input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .slider { position: relative; height: 44px; }
 .slider-track { position: absolute; left: 22px; right: 22px; top: 20px; height: 4px; border-radius: 4px; background: var(--raised); }

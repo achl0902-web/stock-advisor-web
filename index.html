@@ -74,7 +74,16 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 @media (min-width: 1200px) { .main { grid-template-columns: minmax(0, 1fr) 380px; } }
 .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; scroll-margin-top: 8px; }
 .chart-host { height: min(72vh, 680px); min-height: 380px; }
-@media (max-width: 760px) { .chart-host { height: 62vh; min-height: 360px; } }
+@media (max-width: 760px) {
+  .chart-host { height: 68dvh; min-height: 400px; }
+  /* 차트의 기간·전체 화면 버튼은 라이브러리에서 그린다. 모바일에서 누르기 쉽게만 보강한다. */
+  #root .fnc-intervals { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  #root .fnc-chip { min-height: 40px; padding-inline: 12px; }
+  #root .fnc-btn-fullscreen { width: 44px; height: 44px; color: var(--accent); background: var(--accent-wash); }
+}
+@media (max-width: 960px) and (orientation: landscape) and (max-height: 560px) {
+  .chart-host { height: max(300px, calc(100dvh - 125px)); min-height: 300px; }
+}
 .side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 @media (min-width: 761px) { .side { height: min(72vh, 680px); min-height: 380px; } .panel-watch { flex: 1 1 0; min-height: 0; overflow-y: auto; } .panel-ladder { flex: 1.15 1 0; min-height: 0; overflow-y: auto; } }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }

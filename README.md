@@ -12,7 +12,7 @@
 
 | 탭 | 내용 | 읽는 파일 |
 | --- | --- | --- |
-| 홈 (`index.html`, 첫 주소) | 시세 띠 바로 아래 **QLD 챔피언 전략 상태·가까운 관심가·주요 일정**(오늘 앞뒤 30일: FOMC·CPI·고용, 실적, 휴장일, 내 공시·ETF 리밸런싱. `assets/home.js`). 그 아래 Funnest Charts 트레이딩 차트(지표·그리기 도구, 평단·관심가 선), 지수·선물·금리·환율·비트코인 띠, 관심종목, 내 가격선 사다리, 나스닥100·코스피 히트맵. 열 때(마지막 수집이 3분 넘었으면)와 새로 불러오기를 누를 때 `board` 워크플로를 실행해 새로 수집하고 끝나면 다시 그림(30~40초) | stock-advisor `board-data` 브랜치, `reports/events.json`, `config/price_alerts.json`, `reports/alerts_state.json`, back-testing `qld/data/status.json`(공개) |
+| 홈 (`index.html`, 첫 주소) | 시세 띠 바로 아래 **QLD 챔피언 전략 상태·가까운 관심가·주요 일정**(오늘 앞뒤 30일: FOMC·CPI·고용, 실적, 휴장일, 내 공시·ETF 리밸런싱. `assets/home.js`). 그 아래 Funnest Charts 트레이딩 차트(지표·그리기 도구, 평단·관심가 선), 지수·선물·금리·환율·비트코인 띠, 관심종목, 내 가격선 사다리, 나스닥100·코스피 히트맵. 열 때(마지막 수집이 3분 넘었으면)와 새로 불러오기를 누를 때 `board` 워크플로를 실행해 새로 수집하고 끝나면 다시 그림. 수집이 완료되면 홈의 관심가·수집 실패 경고도 자동 갱신 | stock-advisor `board-data` 브랜치, `reports/events.json`, `config/price_alerts.json`, `reports/alerts_state.json`, back-testing `qld/data/status.json`(공개) |
 | 자산 (`#/assets`) | **계좌**: 바로 쓸 수 있는 돈(주 계좌·바이오). 계좌 구성에서 전체·주 계좌·바이오 중 하나를 고르면 그 칸에 기간(버튼·시작일/종료일 날짜 입력·양쪽 슬라이더)별 투자성과(투자손익·투자수익률·기초/기말 평가금액·순 입출금·투자원금, 입출금 제외)와 평가액·투자원금 추이, 계좌 구성·종목 구성 도넛, 보유·평가손익. 종목별 가격 날짜와 수집 오류도 별도로 표시. **연금** (`#/assets/pension`): 퇴직연금 DC(추이·종목 구성, 위험자산 70% 한도). **코인** (`#/assets/crypto`): 크립토 계좌(추이·목표 수량). 둘 다 바로 쓸 돈이 아니라 계좌 탭 합계에 넣지 않는다. | `config/accounts.json`, `board-data` 브랜치 시세·평가액 추이(`networth--history.json`), 시세가 누락된 경우에만 최근 `brief.json` |
 | 기록 (`#/log`) | **판단**: 위쪽에 최신 판단(도장·요지·주문 티켓), 걸어 둔 주문, 다가오는 날짜, 성적 요약. 그 아래 계좌별 판단 목록(채점 결과 함께), 상세(주문 티켓·채점·최종 점검·리포트 본문). **성적**: 기간별 방향 적중·초과수익·분할 효과, 판단별 벤치마크 대비. **관심가** (`#/log/levels`): 종목별 가격선 사다리(현재가 위치·거리)와 날짜 기준. **ETF** (`#/log/etf`): 426020 리밸런싱 일지와 사후 평가 | `runs/*/`, `config/open_orders.json`, `runs/<id>/final_decision.json`, `plan.json`, `checks.json`, `report.md`, `reports/scorecard.json`, `config/scorecard_notes.json`, `config/price_alerts.json`, `etfwatch/reports/*.md` |
 
@@ -50,9 +50,12 @@
 - `assets/app.js`: 연결·불러오기·화면 이동
 - `assets/update.js`: 새로 배포된 화면 파일이 있으면 한 번 다시 연다(판단 일지·홈 공용)
 - `assets/home.js`: 홈 패널(QLD 전략·가까운 관심가·주요 일정)
+- `assets/board-sync.js`: 시세판 수집 완료 시 홈 패널만 갱신(추가 GitHub 폴링 없이 표시 변화 관찰)
+- `.github/workflows/check.yml`, `package.json`: PR 및 main 변경 시 Node 기반 구문·회귀 테스트 자동 실행
 - `assets/view-home.js`, `view-log.js`, `view-assets.js`: 탭별 화면
 - `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
 - `assets/app.css`: 판단 일지 스타일
+- `docs/chart-source.md`: 차트 압축 번들 원본·빌드 구성 현황과 복원 절차
 - `index.html`(홈), `assets/sise.js`: 시세판. `sise.html`은 예전 주소를 홈으로 넘기는 빈 페이지. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다(예외: 차트의 trading 공급자에 `getExecutions`를 한 줄 덧대, 스냅샷 관심종목의 `fills`(내 매수·매도)를 차트에 ▲▼로 찍는다. 수집 완료 확인 간격 3초)(탭과 색은 `sise.html`이 공용 파일로 잇습니다)
 
 ## 가족 보기

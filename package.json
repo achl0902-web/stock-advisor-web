@@ -1,0 +1,9 @@
+{
+  "name": "stock-advisor-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check assets/app.js && node --check assets/home.js && node --check assets/sise.js && node --test test/*.test.mjs"
+  }
+}
