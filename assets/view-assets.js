@@ -10,6 +10,17 @@ const TABS = [["#/assets", "계좌", "accounts"], ["#/assets/pension", "연금",
 /* ---------- 계좌: 위에 기간(버튼·슬라이더), 투자성과와 평가액 추이, 계좌 구성 도넛, 고른 계좌의 성과·종목 구성 ---------- */
 const picked = {}; // 묶음(계좌·연금·코인)마다 고른 계좌
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
+// 날짜 입력의 iOS 기본 UI는 고유 너비가 커서 카드 밖으로 튀어나온다.
+// 표시 너비는 우리 컨트롤이 담당하고, 투명한 날짜 입력은 터치·키보드·접근성에 그대로 쓴다.
+function datePicker(end, label, date, min, max) {
+  return `<label class="date-field"><span>${label}</span>
+    <span class="date-select">
+      <span class="date-value fig" data-date-value="${end}" aria-hidden="true">${date.replaceAll("-", ".")}</span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>
+      <input type="date" data-date="${end}" value="${date}" min="${min}" max="${max}" aria-label="성과 ${label}">
+    </span>
+  </label>`;
+}
 // 고른 기간: preset을 누르면 끝은 마지막 날, 슬라이더를 움직이면 preset이 풀린다. 날짜는 worth.t의 값
 const win = { preset: "365", from: null, to: null };
 let unit = "KRW"; // 계좌 탭의 성과를 원화로 볼지 달러로 볼지
@@ -46,8 +57,8 @@ function rangeBox({ units = false } = {}) {
   return `<section class="range" aria-label="기간">
     <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
     <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
-      <label>시작일<input type="date" data-date="from" value="${w.from}" min="${t[0]}" max="${t.at(-1)}" aria-label="성과 시작일"></label>
-      <label>종료일<input type="date" data-date="to" value="${w.to}" min="${t[0]}" max="${t.at(-1)}" aria-label="성과 종료일"></label>
+      ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
+      ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
     </div>
     ${sliderBox(t, w)}
     <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b><span>까지</span></p>
@@ -101,6 +112,8 @@ function bindRange() {
     });
     view.querySelectorAll('[data-date="from"]').forEach(x => { x.value = t[a]; });
     view.querySelectorAll('[data-date="to"]').forEach(x => { x.value = t[b]; });
+    view.querySelectorAll('[data-date-value="from"]').forEach(x => { x.textContent = t[a].replaceAll("-", "."); });
+    view.querySelectorAll('[data-date-value="to"]').forEach(x => { x.textContent = t[b].replaceAll("-", "."); });
     view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = dayText(t[a]); });
     view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = dayText(t[b]); });
   };
