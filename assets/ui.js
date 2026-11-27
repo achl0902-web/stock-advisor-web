@@ -137,7 +137,8 @@ export const moreLink = (href, text) => `<a class="more" href="${href}">${esc(te
 
 // 탭 안의 갈래 (기록: 판단·성적 / 자산: 계좌·관심가·ETF). items: [href, 이름, id]
 // 기록 탭의 갈래(판단 일지와 자산 화면 코드가 같이 쓴다)
-export const LOG_TABS = [["#/log", "판단", "runs"], ["#/log/score", "성적", "score"], ["#/log/levels", "관심가", "levels"], ["#/log/etf", "ETF", "etf"]];
+export const LOG_TABS = [["#/log", "판단", "runs"], ["#/log/score", "성적", "score"]];
+export const MARKET_TABS = [["./index.html#market", "시세판", "board"], ["#/market/levels", "관심가", "levels"], ["#/market/etf", "ETF", "etf"]];
 export function subtabs(items, current) {
   return `<nav class="seg" aria-label="보기">${items.map(([href, label, id]) =>
     `<a href="${href}" ${id === current ? 'aria-current="page"' : ""}>${esc(label)}</a>`).join("")}</nav>`;

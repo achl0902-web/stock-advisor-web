@@ -4,19 +4,23 @@ import "./update.js";
 import { state, loadModel, loadAssetModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
-import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-assets.js";
+import { renderToday } from "./view-today.js";
+import { renderAccounts, renderLevels, renderEtf } from "./view-assets.js";
 
 const DEFAULT_REPO = "achl0902-web/stock-advisor";
 const syncEl = document.getElementById("sync");
 
 // 주소(#/탭/갈래) → [아래 탭, 그리는 함수]. 예전 주소(#/runs·#/score·#/accounts·#/etf·#/assets/levels·#/assets/etf)도 받는다. 빈 주소는 홈(index.html)으로 넘긴다.
 const ROUTES = {
-  "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"], "log/levels": ["log", renderLevels], "log/etf": ["log", renderEtf],
+  "today": ["today", renderToday],
+  "log": ["log", renderRuns, "narrow"], "log/score": ["log", renderScore, "narrow"],
+  "market/levels": ["sise", renderLevels], "market/etf": ["sise", renderEtf],
+  "log/levels": ["sise", renderLevels], "log/etf": ["sise", renderEtf],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
-  "assets": ["assets", renderAccounts], "assets/pension": ["assets", () => renderLongTerm("pension")], "assets/crypto": ["assets", () => renderLongTerm("crypto")],
-  "accounts": ["assets", renderAccounts], "assets/long": ["assets", () => renderLongTerm("pension")], "assets/levels": ["log", renderLevels], "assets/etf": ["log", renderEtf], "etf": ["log", renderEtf],
+  "assets": ["assets", renderAccounts],
+  "accounts": ["assets", renderAccounts], "assets/levels": ["sise", renderLevels], "assets/etf": ["sise", renderEtf], "etf": ["sise", renderEtf],
 };
-const ASSET_ROUTES = new Set(["assets", "assets/pension", "assets/crypto", "accounts", "assets/long"]);
+const ASSET_ROUTES = new Set(["assets", "accounts"]);
 const currentPath = () => location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
 
 function setTab(tab) {
@@ -33,7 +37,9 @@ if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우�
 
 function route({ keep = false } = {}) {
   let path = currentPath();
-  if (path === "") { location.replace("./" + location.search); return; }
+  if (path === "") { location.replace("#/" + (FAMILY ? "assets" : "today")); return; }
+  // 없어진 DC·코인 상세 주소는 단일 통합 자산 화면으로 보낸다.
+  if (["assets/pension", "assets/crypto", "assets/long"].includes(path)) { history.replaceState(null, "", "#/assets"); path = "assets"; }
   if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
   // 자산만 보고 들어온 경우 판단 기록은 읽지 않았다. 기록을 열 때 처음 한 번만 전체 모델로 바꾼다.
   if (state.model?.light && path !== "settings" && !ASSET_ROUTES.has(path)) {
@@ -45,6 +51,13 @@ function route({ keep = false } = {}) {
         boot();
       }
     });
+    else boot();
+    return;
+  }
+  // 오늘 첫 진입은 최신 판단 한 건만 읽는다. 기록을 열 때만 최근 20건으로 확장한다.
+  if (state.model?.summaryOnly && /^(log(?:\/|$)|runs$|score$|run\/)/.test(path)) {
+    state.model = null;
+    if (booting) booting.finally(() => boot());
     else boot();
     return;
   }
@@ -102,7 +115,7 @@ function renderSetup(message) {
     settings.save({ owner, repo, token });
     state.model = null;
     lastPath = null;
-    const start = FAMILY ? "#/assets" : "#/";
+    const start = FAMILY ? "#/assets" : "#/today";
     if (location.hash !== start) location.hash = start;
     boot();
   });
@@ -134,12 +147,14 @@ async function boot() {
     try {
       const onProgress = (n, total) => { const el = document.getElementById("progress"); if (el && total) el.textContent = `판단 기록 ${n}/${total}`; };
       // 새로 불러올 때는 이미 펼쳐 둔 만큼 다시 읽는다(바뀐 파일만 받고 나머지는 캐시)
-      const count = Math.max(FIRST_PAGE, state.model?.shown || 0);
+      const todayOnly = !FAMILY && currentPath() === "today";
+      const count = Math.max(todayOnly ? 1 : FIRST_PAGE, state.model?.shown || 0);
       const assetOnly = FAMILY || ASSET_ROUTES.has(currentPath());
       const [model, strategy] = await Promise.all([
         assetOnly ? loadAssetModel(state.repo) : loadModel(state.repo, onProgress, count),
         assetOnly ? Promise.resolve(null) : fetchStrategyStatus(),
       ]);
+      if (todayOnly) model.summaryOnly = true;
       Object.assign(state, { model, strategy, loadedAt: Date.now() });
       const at = new Date(model.head.date);
       setSync(`${ago(at)} 갱신`);

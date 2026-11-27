@@ -85,6 +85,60 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 
 /* ---------- 패널 ---------- */
 .panel { display: block; padding: 18px; background: var(--panel); border-radius: var(--r-panel); text-decoration: none; }
+
+/* ---------- 오늘: 길게 스크롤하기 전에 확인할 상태 ---------- */
+.today-page { display: grid; gap: 14px; min-width: 0; }
+.today-heading { padding: 10px 2px 0; }
+.today-heading h1 { font-size: 27px; line-height: 1.3; font-weight: 700; }
+.today-heading p { margin-top: 2px; color: var(--sub); font-size: 14px; }
+.today-fresh { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; font-size: 13px; color: var(--sub); }
+.today-fresh .ic { width: 15px; height: 15px; }
+.today-fresh.tone-warn { color: var(--warn); }
+.today-wealth { background: linear-gradient(140deg, var(--accent-wash), transparent 65%), var(--panel); }
+.today-total { font-size: clamp(29px, 7vw, 40px); font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+.today-wealth > .hint { margin-top: 5px; }
+.today-accounts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.today-accounts span { display: inline-flex; align-items: baseline; gap: 7px; padding: 8px 10px; border-radius: 10px; background: var(--raised); font-size: 13px; color: var(--sub); }
+.today-accounts b { color: var(--ink); }
+.today-actions h3 { margin: 16px 0 5px; color: var(--sub); font-size: 13px; }
+.today-actions h3:first-of-type { margin-top: 3px; }
+.today-list { display: grid; }
+.today-list > li { border-top: 1px solid var(--line); }
+.today-list > li:first-child { border-top: 0; }
+.today-list li > a, .today-list .today-order { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; min-height: 50px; align-items: center; padding: 10px 0; text-decoration: none; }
+.today-list b { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.today-list small, .today-latest small { display: block; font-size: 12px; line-height: 1.5; color: var(--sub); overflow-wrap: anywhere; }
+.today-result { display: flex; align-items: center; justify-content: flex-end; gap: 2px; max-width: 148px; text-align: right; font-size: 13px; font-weight: 600; }
+.today-result .ic { width: 14px; height: 14px; }
+.today-result small { text-align: right; }
+.today-order .today-result { display: grid; }
+.today-latest { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 14px; align-items: center; text-decoration: none; }
+.today-latest > span:last-child { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--sub); font-size: 13px; }
+.today-latest .ic { display: inline; vertical-align: middle; width: 14px; height: 14px; }
+.today-page .strategy .axes { display: flex; flex-wrap: wrap; gap: 6px; }
+.today-page .strategy .axes li { background: var(--raised); padding: 5px 8px; border-radius: 8px; font-size: 13px; }
+.today-page .strategy .axes i { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 100%; background: var(--dim); }
+.today-page .strategy .axes .on i { background: var(--accent); }
+.today-page .st-state { margin-bottom: 10px; font-size: 18px; font-weight: 700; }
+.today-page .strategy .hint { margin-top: 8px; }
+.log-intro h1 { font-size: 23px; }
+.log-intro p { margin-top: 3px; }
+.family-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--raised); font-size: 13px; }
+.family-banner b { color: var(--accent); }
+.family-banner > span { color: var(--sub); }
+.family-banner a { margin-left: auto; color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- 자산: 기존 성과·도넛에 반영하는 계좌 선택 ---------- */
+.account-filter { min-width: 0; padding: 10px 12px; border-radius: 14px; background: var(--panel); }
+.account-filter-title { display: block; font-size: 13px; font-weight: 600; color: var(--sub); }
+.compare-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+.compare-pick { display: flex; align-items: center; gap: 9px; justify-content: center; min-width: 0; min-height: 44px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--raised); font-weight: 600; font-size: 13px; cursor: pointer; }
+.compare-pick i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.compare-pick[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--ink); }
+.compare-pick[aria-pressed="false"] { opacity: .7; }
+@media (min-width: 690px) {
+  .compare-picks { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 .panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .panel-h h2 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; min-width: 0; }
 .panel-h > .hint, .panel-h > b { flex: none; white-space: nowrap; }
