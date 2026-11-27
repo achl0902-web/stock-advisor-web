@@ -63,3 +63,17 @@ test("P2 모바일의 차트 정보와 조작은 분리하고, 320px에서 수�
   assert.match(chart, /data-line-step="-1"/);
   assert.match(chart, /aria-live="polite"/);
 });
+
+test("P3 시장 차트는 모바일에서 44px 가로축 조작과 종목 빠른 선택을 제공한다", () => {
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const chart = readFileSync(new URL("../src/chart-app.jsx", import.meta.url), "utf8");
+  assert.match(html, /\.quick-pick\s*\{[^}]*min-height:\s*44px/);
+  assert.match(html, /\.chart-mobile-nav button\s*\{[^}]*min-height:\s*44px/);
+  assert.match(html, /#root \.fnc-chip\s*\{[^}]*min-height:\s*44px/);
+  assert.match(html, /\.market-links a\s*\{[^}]*min-height:\s*44px/);
+  assert.match(chart, /legendValues:\s*i\s*\?\s*"crosshair"\s*:\s*"always"/);
+  assert.match(chart, /settings:\s*\{\s*navigationButtons:\s*!i\s*\}/);
+  assert.match(chart, /chart\.scrollBars\(direction === "past" \? -page : page\)/);
+  assert.match(chart, /chart\.scrollToRealtime\(\)/);
+  assert.match(chart, /className:\s*"quick-symbols"/);
+});

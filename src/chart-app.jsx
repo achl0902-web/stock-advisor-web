@@ -156,6 +156,18 @@ function ChartStage({ feed: t, symbol: e, onSymbol: n, compact: i }) {
         o.current.chart.addAlertLine({ price: h.price, label: h.label }),
       );
   };
+  // 모바일에서는 차트 위의 작은 내비게이션 대신 손가락 크기의 별도 버튼을 제공한다.
+  // scrollBars는 엔진의 과거 페이지 로딩 경로를 그대로 사용한다.
+  const navigate = (direction) => {
+    const chart = o.current?.chart;
+    if (!chart) return;
+    if (direction === "latest") { chart.scrollToRealtime(); return; }
+    if (direction === "zoom-in") { chart.zoom(1.5); return; }
+    if (direction === "zoom-out") { chart.zoom(1 / 1.5); return; }
+    const range = chart.timeScale.visibleRange();
+    const page = range.to >= range.from ? Math.max(8, Math.round((range.to - range.from + 1) * 0.6)) : 30;
+    chart.scrollBars(direction === "past" ? -page : page);
+  };
   return (
     React.useEffect(() => {
       if (!a.current) return;
@@ -169,6 +181,8 @@ function ChartStage({ feed: t, symbol: e, onSymbol: n, compact: i }) {
         trading: t.trading(),
         favoriteIntervals: ["60", "1D", "1W", "1M"],
         drawingToolbar: !i,
+        legendValues: i ? "crosshair" : "always",
+        settings: { navigationButtons: !i },
         storageKey: "board-terminal",
         attribution: !0,
       });
@@ -202,8 +216,46 @@ function ChartStage({ feed: t, symbol: e, onSymbol: n, compact: i }) {
         [],
       ),
     ),
-    jsx("div", { className: "chart-host", ref: a })
+    jsxs(Fragment, {
+      children: [
+        jsx("div", { className: "chart-host", ref: a }),
+        i && jsxs("div", {
+          className: "chart-mobile-nav",
+          role: "group",
+          "aria-label": "차트 가로축 이동과 확대",
+          children: [
+            jsx("button", { type: "button", onClick: () => navigate("past"), "aria-label": "차트를 과거로 이동", children: "과거" }),
+            jsx("button", { type: "button", onClick: () => navigate("future"), "aria-label": "차트를 최근 쪽으로 이동", children: "다음" }),
+            jsx("button", { type: "button", onClick: () => navigate("zoom-out"), "aria-label": "차트 가로축 축소", children: "축소" }),
+            jsx("button", { type: "button", onClick: () => navigate("zoom-in"), "aria-label": "차트 가로축 확대", children: "확대" }),
+            jsx("button", { type: "button", onClick: () => navigate("latest"), "aria-label": "최신 시세 위치로 이동", children: "최근" }),
+          ],
+        }),
+      ],
+    })
   );
+}
+function QuickSymbols({ reg, active, pick }) {
+  const items = [...reg.values()].filter(item => item.kind === "watch");
+  if (!items.length) return null;
+  return jsxs("nav", {
+    className: "quick-symbols",
+    "aria-label": "관심종목 빠른 선택",
+    children: [
+      jsx("span", { className: "quick-title", children: "종목 바로 보기" }),
+      jsx("div", {
+        className: "quick-track",
+        children: items.map(item => jsx("button", {
+          type: "button",
+          className: `quick-pick ${active === item.sym ? "is-active" : ""}`,
+          "aria-pressed": active === item.sym,
+          onClick: () => pick(item.sym),
+          title: `${item.name} (${item.sym})`,
+          children: item.name,
+        }, item.sym)),
+      }),
+    ],
+  });
 }
 function MacroTicker({ snap: t, reg: e, active: n, pick: i }) {
   return jsx("nav", {
@@ -729,8 +781,8 @@ function StockBoardApp() {
       } catch {}
       if (r)
         document
-          .querySelector(".stage")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          .querySelector(".quick-symbols, .stage")
+          ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
     };
   if (e !== "ready" || !t || !n || !p)
     return jsx("main", {
@@ -833,6 +885,7 @@ function StockBoardApp() {
       jsxs("div", {
         className: "main",
         children: [
+          r && jsx(QuickSymbols, { reg: h, active: u, pick: y }),
           jsx("section", {
             className: "stage",
             "aria-label": `${p.name} 차트`,

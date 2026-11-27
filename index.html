@@ -65,7 +65,7 @@ html { scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0p
 .tape::-webkit-scrollbar { display: none; }
 .tape-track { display: flex; gap: 6px; width: max-content; }
 .market-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.market-links a { display: inline-flex; min-height: 36px; align-items: center; padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 9px; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--sub); }
+.market-links a { display: inline-flex; min-height: 44px; align-items: center; padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--sub); }
 .market-links a:focus-visible, .market-links a:hover { color: var(--accent); border-color: var(--accent); }
 .tick { scroll-snap-align: start; width: 132px; display: grid; gap: 1px; padding: 8px 10px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; transition: border-color .15s; }
 .tick:hover { border-color: var(--sub); }
@@ -76,17 +76,30 @@ html { scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0p
 .tick-chg { font-family: var(--font-fig); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .tick-spark { display: block; height: 22px; }
 
+/* 모바일: 관심종목을 찾으려고 차트 아래로 내려갈 필요 없이 바로 전환한다. */
+.quick-symbols { min-width: 0; scroll-margin-top: 8px; }
+.quick-title { display: block; padding: 0 4px 5px; font-size: 13px; font-weight: 600; color: var(--sub); }
+.quick-track { display: flex; gap: 6px; padding: 0 2px 5px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.quick-track::-webkit-scrollbar { display: none; }
+.quick-pick { display: inline-flex; align-items: center; flex: 0 0 auto; min-height: 44px; max-width: 154px; min-width: 62px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 11px; background: var(--panel); color: var(--sub); font-size: 13px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.quick-pick.is-active { border-color: var(--accent); background: var(--accent-wash); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+.quick-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
 /* main grid */
 .main { display: grid; gap: 10px; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 761px) { .main { grid-template-columns: minmax(0, 1fr) 340px; } }
 @media (min-width: 1200px) { .main { grid-template-columns: minmax(0, 1fr) 380px; } }
 .stage { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; min-width: 0; scroll-margin-top: 8px; }
 .chart-host { height: min(72vh, 680px); min-height: 380px; }
+.chart-mobile-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; padding: 7px; border-top: 1px solid var(--line); background: var(--panel); }
+.chart-mobile-nav button { display: grid; place-items: center; min-width: 0; min-height: 44px; padding: 4px 2px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--raised); font-size: 13px; font-weight: 600; text-align: center; touch-action: manipulation; }
+.chart-mobile-nav button:active { background: var(--accent-wash); }
+.chart-mobile-nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (max-width: 760px) {
   .chart-host { height: 68dvh; min-height: 400px; }
   /* 차트의 기간·전체 화면 버튼은 라이브러리에서 그린다. 모바일에서 누르기 쉽게만 보강한다. */
   #root .fnc-intervals { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
-  #root .fnc-chip { min-height: 40px; padding-inline: 12px; }
+  #root .fnc-chip { min-height: 44px; padding-inline: 12px; }
   #root .fnc-btn-fullscreen { width: 44px; height: 44px; color: var(--accent); background: var(--accent-wash); }
 }
 @media (max-width: 960px) and (orientation: landscape) and (max-height: 560px) {
@@ -100,7 +113,7 @@ html { scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0p
 
 /* segmented */
 .seg { display: inline-flex; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 9px; padding: 3px; gap: 2px; }
-.seg button { min-height: 40px; padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--sub); text-align: center; }
+.seg button { min-height: 44px; padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--sub); text-align: center; }
 .seg button.on { background: var(--accent); color: var(--accent-ink); }
 .seg-wide { display: flex; } .seg-wide button { flex: 1; }
 
@@ -108,7 +121,7 @@ html { scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0p
 .w-group + .w-group { margin-top: 6px; }
 .w-head { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--sub); padding: 6px 4px 4px; border-bottom: 1px solid var(--line); }
 .w-head span { font-variant-numeric: tabular-nums; }
-.w-row { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; gap: 8px; align-items: center; padding: 8px 4px; border-radius: 8px; }
+.w-row { width: 100%; min-height: 48px; display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; gap: 8px; align-items: center; padding: 8px 4px; border-radius: 8px; }
 .w-row:hover { background: var(--raised); }
 .w-row.is-active { background: var(--accent-wash); }
 .w-name { display: grid; min-width: 0; }
