@@ -40,7 +40,7 @@ test("60분봉은 별도 파일을 우선하고 요청당 한 번만 읽는다",
   const again = await feed.bars(sym, "60");
   assert.equal(once.length, 220);
   assert.equal(again.length, 220);
-  assert.deepEqual(calls, ["bars/QLD", "hourly/QLD"]);
+  assert.deepEqual(calls, ["hourly/QLD"]); // 별도 시간봉이 있으면 큰 일봉 파일은 아예 읽지 않음
 });
 
 test("새 시간봉 파일이 없을 때 기존 bars.h로 되돌아간다", async () => {
