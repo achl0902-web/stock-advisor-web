@@ -56,12 +56,16 @@ function rangeBox({ units = false } = {}) {
   const unitSeg = unitOn ? `<div class="seg seg-unit" role="group" aria-label="통화 기준">${[["KRW", "원"], ["USD", "$"]].map(([v, l]) => `<button type="button" data-unit="${v}" aria-pressed="${unit === v}" aria-label="${v === "KRW" ? "원화 기준" : "달러 기준"}">${l}</button>`).join("")}</div>` : "";
   return `<section class="range" aria-label="기간">
     <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
-    <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
-      ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
-      ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
-    </div>
-    ${sliderBox(t, w)}
-    <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>부터</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b><span>까지</span></p>
+    <details class="range-custom" ${win.preset ? "" : "open"}>
+      <summary class="range-summary"><span>기간 직접 조정</span><span class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></span></summary>
+      <div class="range-custom-controls">
+        <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
+          ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
+          ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
+        </div>
+        ${sliderBox(t, w)}
+      </div>
+    </details>
   </section>
   <div class="range-float" aria-label="기간" role="group">
     <p class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></p>
@@ -90,7 +94,7 @@ function bindRange() {
   const bar = view.querySelector(".range"), float = view.querySelector(".range-float");
   floatObs?.disconnect();
   floatObs = new IntersectionObserver(([e]) => {
-    const past = !e.isIntersecting && e.boundingClientRect.top < TOP;
+    const past = !e.isIntersecting && e.boundingClientRect.top < TOP && !!bar.querySelector(".range-custom")?.open;
     if (past) fit();
     float.classList.toggle("on", past);
     float.inert = !past;
@@ -154,6 +158,7 @@ function bindRange() {
   }));
   view.querySelectorAll("[data-period]").forEach(btn => btn.addEventListener("click", () => {
     win.preset = btn.dataset.period;
+    view.querySelector(".range-custom").open = false;
     const w = presetWindow(t);
     show(t.indexOf(w.from), t.indexOf(w.to));
     view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
