@@ -13,7 +13,7 @@
 | 탭 | 내용 | 읽는 파일 |
 | --- | --- | --- |
 | 오늘 (`log.html#/today`, 기본 화면) | 운용 계좌 요약, 시세 수집 시각·실패, 확인이 필요한 관심가, 미체결 주문, 다가오는 알림 일정, QLD 챔피언 전략, 가장 최근 판단, 가까운 주요 시장 일정. 첫 진입에는 최근 판단 1건만 불러오고 목록은 기록 탭에 들어갈 때 읽음 | `config/accounts.json`, `config/open_orders.json`, `config/price_alerts.json`, `reports/events.json`, `board-data` 브랜치, 최근 판단 1건, back-testing `qld/data/status.json` |
-| 자산 (`#/assets`) | 주 계좌·바이오를 기본 선택하는 **단일 통합 화면**. 퇴직연금 DC·비트코인을 포함해 계좌 토글로 추가·제외하면 **기존 계좌 구성 도넛·선택 합계·성과·평가액 추이·보유 내역**을 해당 조합에 맞춰 갱신. 도넛 아래 계좌를 누르면 개별 성과·수익률·보유를 확인. 중복 비교 차트·도넛과 별도 DC·코인 상세 탭은 제거. 기간 버튼·날짜 선택과 원/$ 표시를 공통 적용. 예전 상세 주소는 통합 화면으로 이동 | `config/accounts.json`, `board-data` 브랜치 `networth--history.json` |
+| 자산 (`#/assets`) | 주 계좌·바이오를 기본 선택하는 **단일 통합 화면**. DC·비트코인도 계좌 토글로 추가·제외. **선택 계좌 성과·수익률·평가액 추이를 도넛보다 먼저** 표시하고, 기존 도넛과 보유 내역도 선택에 맞춰 갱신. 기간 슬라이더는 기본으로 펼쳐두며 빠른 기간 버튼을 눌러도 닫히지 않음. 정확한 날짜·±7일 이동은 보조 옵션, 상세 손익 분해는 펼쳐서 확인. 원/$ 표시 공통 적용. 이전 DC·코인 상세 주소는 통합 화면으로 이동 | `config/accounts.json`, `board-data` 브랜치 `networth--history.json` |
 | 시장 (`index.html#market`) | Funnest Charts 트레이딩 차트(지표·그리기·평단/관심가), 지수·환율·비트코인 띠, 관심종목, 가격선, 나스닥100·코스피 히트맵. **관심가 전체** (`#/market/levels`)와 **ETF 구성 감시** (`#/market/etf`)를 시장 아래에 연결. 시장 화면은 차트에 집중하고 QLD 전략·일정·가까운 관심가 요약 패널은 오늘로 이동 | `board-data` 브랜치, `config/price_alerts.json`, `etfwatch/reports/*.md` |
 | 기록 (`#/log`) | **판단**: 과거 판단 목록(계좌별 필터), 상세(주문 티켓·채점·최종 점검·리포트). **성적**: 거래일 기준 적중·벤치마크 대비·분할 효과. 기존 기록 상단의 최신 판단·미체결 주문·다가오는 날짜 요약은 오늘로 이동 | `runs/*/`, `reports/scorecard.json`, `config/scorecard_notes.json` |
 

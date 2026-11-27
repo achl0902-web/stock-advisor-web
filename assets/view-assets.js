@@ -56,17 +56,22 @@ function rangeBox({ units = false } = {}) {
   const unitSeg = unitOn ? `<div class="seg seg-unit" role="group" aria-label="통화 기준">${[["KRW", "원"], ["USD", "$"]].map(([v, l]) => `<button type="button" data-unit="${v}" aria-pressed="${unit === v}" aria-label="${v === "KRW" ? "원화 기준" : "달러 기준"}">${l}</button>`).join("")}</div>` : "";
   return `<section class="range" aria-label="기간">
     <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
-    <details class="range-custom" ${win.preset ? "" : "open"}>
-      <summary class="range-summary"><span>기간 직접 조정</span><span class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></span></summary>
+    <details class="range-custom" open>
+      <summary class="range-summary"><span>기간 슬라이더</span><span class="range-dates"><b class="fig" data-label="from">${esc(dayText(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(dayText(w.to))}</b></span></summary>
       <div class="range-custom-controls">
-        <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
-          ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
-          ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
-        </div>
-        <div class="range-steps" role="group" aria-label="기간 일주일 단위로 미세 조정">
-          ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label} 1주씩</span><button type="button" data-step-end="${end}" data-step="-7" aria-label="${label} 일주일 전">−7일</button><button type="button" data-step-end="${end}" data-step="7" aria-label="${label} 일주일 후">+7일</button></div>`).join("")}
-        </div>
         ${sliderBox(t, w)}
+        <details class="range-fine">
+          <summary>날짜 직접 선택 · 7일씩 미세 조정</summary>
+          <div class="range-fine-controls">
+            <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
+              ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
+              ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
+            </div>
+            <div class="range-steps" role="group" aria-label="기간 일주일 단위로 미세 조정">
+              ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label} 1주씩</span><button type="button" data-step-end="${end}" data-step="-7" aria-label="${label} 일주일 전">−7일</button><button type="button" data-step-end="${end}" data-step="7" aria-label="${label} 일주일 후">+7일</button></div>`).join("")}
+            </div>
+          </div>
+        </details>
       </div>
     </details>
   </section>
@@ -177,7 +182,6 @@ function bindRange() {
   }));
   view.querySelectorAll("[data-period]").forEach(btn => btn.addEventListener("click", () => {
     win.preset = btn.dataset.period;
-    view.querySelector(".range-custom").open = false;
     const w = presetWindow(t);
     show(t.indexOf(w.from), t.indexOf(w.to));
     view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", String(x === btn)));
@@ -211,8 +215,7 @@ function realizedBlock(sum) {
   const names = state.model.names;
   const row = (label, v, note = "") => `<li><span>${label}${note ? `<small>${note}</small>` : ""}</span><b class="fig tone-${tone(v)}">${won(v)}</b></li>`;
   const sells = sum.sells.slice(0, 8);
-  return `<div class="breakdown">
-    <h3>투자손익 나눠 보기</h3>
+  return `<details class="breakdown-details"><summary>투자손익 나눠 보기</summary><div class="breakdown">
     <ul class="bd">
       ${row("실현손익", sum.realized, "판 종목, 이동평균 원가")}
       ${row("배당·이자", sum.income, "세금 뺀 금액")}
@@ -221,7 +224,7 @@ function realizedBlock(sum) {
     ${sells.length ? `<details class="sells"><summary>기간 중 매도 ${sum.sells.length}건</summary><ul>${sells.map(x =>
       `<li><span>${esc(dayText(x.d))} ${esc(names[x.sym] || x.sym)}</span><b class="fig tone-${tone(x.v)}">${won(x.v)}</b></li>`).join("")}</ul>${sum.sells.length > 8 ? `<p class="hint">최근 8건만 보여 줍니다.</p>` : ""}</details>` : `<p class="hint">이 기간에 판 종목은 없습니다.</p>`}
     ${sum.partial ? `<p class="hint">거래내역이 없는 계좌는 실현손익을 계산하지 않아 평가손익 변화에 들어 있습니다.</p>` : ""}
-  </div>`;
+  </div></details>`;
 }
 
 // 금액: 고른 통화로. signed는 부호를 붙인다
@@ -442,16 +445,16 @@ function renderGroup() {
   view.innerHTML = `
     ${fam ? `<aside class="family-banner"><b>공유 보기</b><span>주 계좌와 비트코인만 표시합니다.</span><a href="./?view=all">개인 보기 전환</a></aside>` : ""}
     ${priceStatusBar()}
-    ${rangeBox({ units: true })}
     <div class="account-filter" role="group" aria-label="합계와 추이에 포함할 계좌">
       <span class="account-filter-title">포함할 계좌</span>
       <div class="compare-picks">${options.map(k => `<button type="button" class="compare-pick" data-compare-key="${k}" aria-pressed="${compared.has(k)}"><i style="background:${color[k]}"></i>${esc(accountShort(k))}</button>`).join("")}</div>
     </div>
+    ${rangeBox({ units: true })}
     <div class="accounts">
+      ${panelOf(cur)}
       <div class="col">
         <section class="panel" data-comp>${comp(views())}</section>
       </div>
-      ${panelOf(cur)}
     </div>
     ${worthNote(keys)}`;
   // 포함 계좌를 바꿀 때는 원래 도넛·성과 칸만 갱신한다. 기간 조작 상태와 스크롤을 유지한다.

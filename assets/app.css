@@ -130,14 +130,19 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 
 /* ---------- 자산: 기존 성과·도넛에 반영하는 계좌 선택 ---------- */
 .account-filter { min-width: 0; padding: 10px 12px; border-radius: 14px; background: var(--panel); }
-.account-filter-title { display: block; font-size: 13px; font-weight: 600; color: var(--sub); }
+.account-filter-title { display: block; font-size: 14px; font-weight: 600; color: var(--sub); }
 .compare-picks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
-.compare-pick { display: flex; align-items: center; gap: 9px; justify-content: center; min-width: 0; min-height: 44px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--raised); font-weight: 600; font-size: 13px; cursor: pointer; }
+.compare-pick { display: flex; align-items: center; gap: 9px; justify-content: flex-start; min-width: 0; min-height: 44px; padding: 7px 12px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--raised); font-weight: 600; font-size: 14px; cursor: pointer; }
 .compare-pick i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.compare-pick::after { content: "✓"; margin-left: auto; color: var(--accent); opacity: 0; }
+.compare-pick[aria-pressed="true"]::after { opacity: 1; }
 .compare-pick[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--ink); }
 .compare-pick[aria-pressed="false"] { opacity: .7; }
 @media (min-width: 690px) {
+  .account-filter { display: flex; align-items: center; gap: 16px; }
+  .account-filter-title { flex: none; white-space: nowrap; }
   .compare-picks { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .account-filter .compare-picks { flex: 1; margin-top: 0; }
 }
 .panel-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .panel-h h2 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; min-width: 0; }
@@ -316,7 +321,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 
 /* ---------- 자산: 계좌 ---------- */
 .accounts { display: grid; gap: 14px; }
-@media (min-width: 900px) { .accounts { grid-template-columns: minmax(0, 420px) minmax(0, 1fr); align-items: start; } }
+@media (min-width: 900px) { .accounts { grid-template-columns: minmax(0, 1fr) minmax(280px, 380px); align-items: start; } }
 .worth { display: grid; gap: 2px; padding: 6px 4px 0; }
 .worth span { font-size: 14px; color: var(--sub); }
 .worth b { font-size: 34px; font-weight: 700; line-height: 1.15; letter-spacing: -.03em; }
@@ -428,6 +433,13 @@ html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(saf
 .range-summary .range-dates { margin-left: auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; font-size: 12px; }
 .range-summary .range-dates b { font-size: 13px; }
 .range-custom-controls { display: grid; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.range-fine { min-width: 0; }
+.range-fine > summary { min-height: 40px; display: flex; align-items: center; gap: 7px; padding: 4px 0; list-style: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--sub); }
+.range-fine > summary::-webkit-details-marker { display: none; }
+.range-fine > summary::before { content: "▸"; color: var(--accent); }
+.range-fine[open] > summary::before { content: "▾"; }
+.range-fine > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.range-fine-controls { display: grid; gap: 10px; padding: 8px 0 4px; border-top: 1px solid var(--line); }
 .seg-unit button { min-width: 40px; padding: 0 10px; }
 .range-inputs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; max-width: 100%; }
 .range-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-width: 0; }
@@ -464,9 +476,23 @@ html { overflow-anchor: none; scroll-padding-bottom: calc(var(--tab-h) + env(saf
 .perf b { font-size: 24px; font-weight: 700; line-height: 1.25; letter-spacing: -.02em; white-space: nowrap; }
 .perf > div:last-child { justify-items: end; }
 .perf > div:last-child b { font-size: 20px; }
+@media (max-width: 390px) {
+  .account > .panel-h { flex-wrap: wrap; }
+  .account > .panel-h > b { margin-left: auto; }
+  .perf { gap: 8px; }
+  .perf b { font-size: clamp(18px, 5.6vw, 24px); }
+  .perf > div:last-child b { font-size: 18px; }
+}
 .perf-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 6px; }
 .perf-facts dt small { color: var(--dim); }
 .perf-facts dd { font-size: 15px; }
+.breakdown-details { margin-top: 12px; border-top: 1px solid var(--line); }
+.breakdown-details > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--sub); }
+.breakdown-details > summary::-webkit-details-marker { display: none; }
+.breakdown-details > summary::before { content: "▸"; color: var(--accent); }
+.breakdown-details[open] > summary::before { content: "▾"; }
+.breakdown-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.breakdown-details .breakdown { margin-top: 0; padding-top: 4px; border-top: 0; }
 .panel .trend + .split, .panel .trend + .gauge { margin-top: 14px; }
 .breakdown { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .breakdown h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--sub); }
