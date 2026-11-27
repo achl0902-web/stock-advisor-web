@@ -47,6 +47,8 @@ test("모든 테마의 입력 경계 3:1 및 보조 텍스트 4.5:1 대비를 �
       name + ": secondary labels need a 4.5:1 contrast");
     assert.notEqual(palette["--warn"], palette["--accent"],
       name + ": warnings must not use the primary action color");
+    if (name === "storm") assert.equal(palette["--warn"], "#ffe078",
+      "orange action should use a yellow warning hue");
   }
 });
 
