@@ -45,3 +45,21 @@ test("320·375·390px 자산 조작부는 한 줄 강제 없이 배치하고 주
   assert.match(css, /\.purpose summary\s*\{[^}]*min-height:\s*44px/);
   assert.match(tokens, /@media \(max-width: 1023px\)[\s\S]*?\.tabbar\s*\{[^}]*height:\s*calc\(var\(--tab-h\) \+ env\(safe-area-inset-bottom, 0px\)\)/);
 });
+
+test("P2 모바일의 차트 정보와 조작은 분리하고, 320px에서 수치가 잘리지 않게 한다", () => {
+  const css = readFileSync(new URL("../assets/app.css", import.meta.url), "utf8");
+  const assets = readFileSync(new URL("../assets/view-assets.js", import.meta.url), "utf8");
+  const chart = readFileSync(new URL("../assets/chart.js", import.meta.url), "utf8");
+  assert.match(css, /\.ln-inspect button\s*\{[^}]*min-width:\s*44px;\s*min-height:\s*48px/);
+  assert.match(css, /@media \(pointer: coarse\)\s*\{\s*\.ln-tip\s*\{[^}]*display:\s*none/);
+  assert.match(css, /@media \(max-width: 360px\)\s*\{\s*\.perf\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /@media \(max-width: 390px\)\s*\{\s*\.hold-top\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(css, /\.icon-btn\s*\{[^}]*width:\s*44px;\s*height:\s*44px/);
+  assert.match(css, /\.chip\s*\{[^}]*height:\s*44px/);
+  assert.match(css, /@media \(max-width: 360px\)\s*\{[^\n]*\.top-tools \.sync\s*\{[^}]*display:\s*none/);
+  assert.match(css, /@media \(max-width: 390px\)\s*\{[^}]*\.tiles dd\s*\{[^}]*white-space:\s*normal/);
+  assert.match(assets, /aria-valuetext="\$\{esc\(dayText\(w.from\)\)\}"/);
+  assert.match(assets, /setAttribute\("aria-valuetext", dayText\(t\[a\]\)\)/);
+  assert.match(chart, /data-line-step="-1"/);
+  assert.match(chart, /aria-live="polite"/);
+});
