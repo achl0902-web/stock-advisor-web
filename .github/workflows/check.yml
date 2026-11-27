@@ -16,4 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+      - run: npm ci
       - run: npm run check
+      - name: 재생성한 차트 번들이 저장소의 배포본과 같은지 확인
+        run: git diff --exit-code -- assets/sise.js

@@ -165,6 +165,10 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .heat-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 .heat-head .sub { margin-left: auto; }
 .heat-body { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+/* Funnest 기본 흰 글씨는 밝은 빨강·파랑 타일에서 대비가 낮다.
+   타일 직속 글씨만 어둡게 바꾸고, 툴팁의 별도 흰 글씨는 유지한다. */
+.heat-body svg > g > text,
+.heat-body svg > g > text tspan { fill: #101322 !important; }
 @media (min-width: 961px) { .heat-body { grid-template-columns: minmax(0, 1fr) 260px; } }
 .heat-body > div { min-width: 0; }
 .sectors { list-style: none; display: grid; gap: 2px; align-content: start; }

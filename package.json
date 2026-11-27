@@ -4,6 +4,17 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check assets/app.js && node --check assets/home.js && node --check assets/sise.js && node --test test/*.test.mjs"
+    "build:chart": "node scripts/build-chart.mjs",
+    "check": "npm run build:chart && node --check assets/app.js && node --check assets/home.js && node --check assets/sise.js && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@funnest/charts-react": "0.6.31",
+    "@funnest/charts-ui": "0.6.31",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "jsdom": "26.1.0"
   }
 }
