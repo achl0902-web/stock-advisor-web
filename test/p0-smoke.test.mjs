@@ -4,12 +4,14 @@ import { JSDOM } from "jsdom";
 
 test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 토글이 작동한다", async () => {
   const dom = new JSDOM("<!doctype html><main id='view'></main>", { url: "https://example.test/log.html#/today", pretendToBeVisual: true });
-  const old = Object.fromEntries(["window", "document", "location", "addEventListener", "removeEventListener", "IntersectionObserver"].map(k => [k, globalThis[k]]));
+  const old = Object.fromEntries(["window", "document", "location", "addEventListener", "removeEventListener", "requestAnimationFrame", "cancelAnimationFrame", "IntersectionObserver"].map(k => [k, globalThis[k]]));
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.location = dom.window.location;
   globalThis.addEventListener = dom.window.addEventListener.bind(dom.window);
   globalThis.removeEventListener = dom.window.removeEventListener.bind(dom.window);
+  globalThis.requestAnimationFrame = callback => { callback(); return 1; };
+  globalThis.cancelAnimationFrame = () => {};
   globalThis.IntersectionObserver = class { observe() {} disconnect() {} };
   dom.window.saFamily = false;
   try {
@@ -35,30 +37,49 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     assert.match(dom.window.document.querySelector("#view").textContent, /운용 계좌/);
     renderAccounts();
     const root = dom.window.document.querySelector("#view");
+    assert.equal(root.querySelector(".range-custom").open, true, "기간 슬라이더는 기본 펼침");
+    assert.equal(root.querySelector(".range-fine").open, false, "정밀 날짜 입력은 보조 옵션");
+    assert.equal(root.querySelector(".accounts").firstElementChild.classList.contains("account"), true, "계좌 선택 아래에 단일 성과 카드를 배치");
+    assert.ok(root.querySelector(".account-filter").compareDocumentPosition(root.querySelector(".range")) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+    root.querySelector('[data-period="all"]').click();
+    assert.equal(root.querySelector(".range-custom").open, true, "기간 버튼을 눌러도 슬라이더 유지");
+    const pnlBefore = root.querySelector(".account .perf b").textContent;
+    const from = root.querySelector('.range .slider input[data-end="from"]');
+    from.value = "2";
+    from.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    assert.equal(root.querySelector('[data-label="from"]').textContent, "11/26");
+    assert.equal(root.querySelector('[data-period="all"]').getAttribute("aria-pressed"), "false");
+    assert.notEqual(root.querySelector(".account .perf b").textContent, pnlBefore, "슬라이더 움직임이 기간 투자손익에 반영됨");
+    assert.match(root.querySelector(".account").textContent, /투자수익률/);
     assert.equal(root.querySelectorAll("[data-compare-key]").length, 4);
     assert.equal(root.querySelector('[data-compare-key="main"]').getAttribute("aria-pressed"), "true");
     assert.equal(root.querySelector('[data-compare-key="bio"]').getAttribute("aria-pressed"), "true");
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "false");
     assert.equal(root.querySelectorAll("[data-comparison], [data-compare-mode]").length, 0);
-    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "main", "bio"]);
-    assert.ok(root.querySelectorAll("[data-comp] .donut").length === 1);
+    assert.equal(root.querySelector("[data-comp]"), null, "중복 선택 계좌 구성 카드를 렌더링하지 않는다");
+    assert.equal(root.querySelector("[data-acc]"), null, "하단 계좌 선택 버튼을 두지 않는다");
+    assert.doesNotMatch(root.textContent, /선택 계좌 구성/);
+    assert.equal(root.querySelectorAll(".accounts > .account").length, 1);
+    assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
+    assert.ok(root.querySelector(".account .donut"), "보유종목 구성 도넛은 유지한다");
     assert.match(root.querySelector(".account").textContent, /투자수익률/);
     root.querySelector('[data-compare-key="crypto"]').click();
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
-    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "main", "bio", "crypto"]);
+    assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
     root.querySelector('[data-compare-key="main"]').click();
-    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "bio", "crypto"]);
-    root.querySelector('[data-comp] [data-acc="crypto"]').click();
-    assert.match(root.querySelector(".account h2").textContent, /비트코인/);
+    assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
     root.querySelector('[data-compare-key="bio"]').click();
-    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "crypto"]);
+    assert.equal(root.querySelector(".accounts > .account").dataset.key, "crypto", "계좌가 하나면 별도 선택 없이 상세 표시");
+    assert.match(root.querySelector(".account h2").textContent, /비트코인/);
+    assert.equal(root.querySelectorAll(".accounts > .account").length, 1);
     root.querySelector('[data-compare-key="crypto"]').click();
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true", "마지막 계좌는 끌 수 없다");
 
     dom.window.saFamily = true;
     renderAccounts();
     assert.deepEqual([...root.querySelectorAll("[data-compare-key]")].map(x => x.dataset.compareKey), ["main", "crypto"]);
-    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "main", "crypto"]);
+    assert.equal(root.querySelector("[data-comp]"), null, "가족 보기에도 중복 구성을 추가하지 않는다");
+    assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
   } finally {
     for (const [k, v] of Object.entries(old)) {
