@@ -81,19 +81,26 @@ export class Repo {
     return accept.includes("raw") ? r.text() : r.json();
   }
 
-  async index() {
+  // 자산 화면은 판단 기록 전체 트리(수천 파일)가 필요 없으므로 HEAD만 확인한다.
+  async headOnly() {
     const base = `/repos/${this.owner}/${this.repo}`;
     const [commit] = await this.req(`${base}/commits?per_page=1`);
-    const tree = await this.req(`${base}/git/trees/${commit.sha}?recursive=1`);
-    this.files.clear();
-    this.boardTree = null;
-    for (const e of tree.tree) if (e.type === "blob") this.files.set(e.path, { sha: e.sha, size: e.size });
     this.head = {
       sha: commit.sha,
       date: commit.commit.committer?.date || commit.commit.author?.date,
       message: commit.commit.message.split("\n")[0],
     };
     return this.head;
+  }
+
+  async index() {
+    const head = await this.headOnly();
+    const tree = await this.req(`/repos/${this.owner}/${this.repo}/git/trees/${head.sha}?recursive=1`);
+    if (tree.truncated) throw new ApiError(0, "판단 기록 파일 목록이 너무 커 일부가 생략됐습니다. 기록을 분할해야 합니다.");
+    this.files.clear();
+    this.boardTree = null;
+    for (const e of tree.tree) if (e.type === "blob") this.files.set(e.path, { sha: e.sha, size: e.size });
+    return head;
   }
 
   // 트리(index) 없이 파일 하나를 바로 읽는다(시세판 홈처럼 판단 기록이 필요 없는 화면). 없으면 null.

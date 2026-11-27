@@ -1,7 +1,7 @@
 // 판단 일지: 연결·불러오기·화면 이동. 화면은 view-*.js, 데이터 모델은 store.js, 공통 조각은 ui.js.
 import { Repo, ApiError, settings, fetchStrategyStatus } from "./data.js";
 import "./update.js";
-import { state, loadModel, FIRST_PAGE } from "./store.js";
+import { state, loadModel, loadAssetModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
 import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-assets.js";
@@ -16,6 +16,8 @@ const ROUTES = {
   "assets": ["assets", renderAccounts], "assets/pension": ["assets", () => renderLongTerm("pension")], "assets/crypto": ["assets", () => renderLongTerm("crypto")],
   "accounts": ["assets", renderAccounts], "assets/long": ["assets", () => renderLongTerm("pension")], "assets/levels": ["log", renderLevels], "assets/etf": ["log", renderEtf], "etf": ["log", renderEtf],
 };
+const ASSET_ROUTES = new Set(["assets", "assets/pension", "assets/crypto", "accounts", "assets/long"]);
+const currentPath = () => location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
 
 function setTab(tab) {
   document.querySelectorAll("#tabbar a").forEach(a => a.dataset.tab === tab ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"));
@@ -30,9 +32,22 @@ const FAMILY = !!window.saFamily;
 if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우리 자산"; b.href = "#/assets"; document.title = "우리 자산"; }
 
 function route({ keep = false } = {}) {
-  let path = location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
+  let path = currentPath();
   if (path === "") { location.replace("./" + location.search); return; }
   if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
+  // 자산만 보고 들어온 경우 판단 기록은 읽지 않았다. 기록을 열 때 처음 한 번만 전체 모델로 바꾼다.
+  if (state.model?.light && path !== "settings" && !ASSET_ROUTES.has(path)) {
+    state.model = null;
+    // 다른 갱신이 진행 중이면 완료 후 전환한다. 그렇지 않으면 경량 모델을 다시 불러올 수 있다.
+    if (booting) booting.finally(() => {
+      if (currentPath() !== "settings" && !ASSET_ROUTES.has(currentPath()) && (!state.model || state.model.light)) {
+        state.model = null;
+        boot();
+      }
+    });
+    else boot();
+    return;
+  }
   if (lastPath != null) scrolls.set(lastPath, scrollY);
   const y = keep ? scrollY : (lastPath?.startsWith("run/") && scrolls.get(path)) || 0;
   lastPath = path;
@@ -120,7 +135,11 @@ async function boot() {
       const onProgress = (n, total) => { const el = document.getElementById("progress"); if (el && total) el.textContent = `판단 기록 ${n}/${total}`; };
       // 새로 불러올 때는 이미 펼쳐 둔 만큼 다시 읽는다(바뀐 파일만 받고 나머지는 캐시)
       const count = Math.max(FIRST_PAGE, state.model?.shown || 0);
-      const [model, strategy] = await Promise.all([loadModel(state.repo, onProgress, count), fetchStrategyStatus()]);
+      const assetOnly = FAMILY || ASSET_ROUTES.has(currentPath());
+      const [model, strategy] = await Promise.all([
+        assetOnly ? loadAssetModel(state.repo) : loadModel(state.repo, onProgress, count),
+        assetOnly ? Promise.resolve(null) : fetchStrategyStatus(),
+      ]);
       Object.assign(state, { model, strategy, loadedAt: Date.now() });
       const at = new Date(model.head.date);
       setSync(`${ago(at)} 갱신`);
@@ -140,7 +159,7 @@ async function boot() {
 
 /* ---------- 새 버전 확인 ---------- */
 
-window.addEventListener("hashchange", () => route());
+window.addEventListener("hashchange", () => state.model || currentPath() === "settings" ? route() : boot());
 document.getElementById("refresh").innerHTML = icon("refresh");
 document.getElementById("refresh").addEventListener("click", boot);
 document.getElementById("settings-link").innerHTML = icon("gear");

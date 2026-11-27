@@ -53,7 +53,9 @@ async function main() {
   ]);
   Object.assign(state, { model: levelsModel({ accounts, alerts, alertState, board }), strategy });
   const near = levelItems().filter(it => !(FAMILY && ["bio", "pension"].includes(it.account)));
-  el.innerHTML = `${strategyPanel()}${nearPanel(near, "log.html")}${eventsPanel(events)}`;
+  const failed = board?.errors || [];
+  const issue = failed.length ? `<p class="alert quote-issue" role="alert">시세 수집 일부 실패${FAMILY ? "" : ` ${failed.length}건 (${esc(failed.join(", "))})`}. 일부 가격은 누락되었거나 이전 분석값일 수 있습니다.</p>` : "";
+  el.innerHTML = `${issue}${strategyPanel()}${nearPanel(near, "log.html")}${eventsPanel(events)}`;
 }
 
 main().catch(e => { if (el) el.innerHTML = `<p class="hint">홈 패널을 불러오지 못했습니다: ${esc(e?.message || String(e))}</p>`; });

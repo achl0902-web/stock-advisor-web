@@ -34,13 +34,13 @@ const pickDecision = d => ({ decision: d.decision, confidence: d.confidence, gis
 const pickAccount = a => ({ id: a.id, purpose: a.purpose, holdings: (a.holdings || []).map(h => ({ symbol: h.symbol })) });
 export const pickBoard = s => {
   const quotes = {};
-  for (const w of s.watch || []) quotes[w.code] = { price: w.last, chg: w.chg_pct, name: w.name, currency: w.market === "US" ? "USD" : "KRW" };
+  for (const w of s.watch || []) quotes[w.code] = { price: w.last, chg: w.chg_pct, name: w.name, barDate: w.date || null, source: "board", currency: w.market === "US" ? "USD" : "KRW" };
   let fx = null;
   for (const m of s.macro || []) {
     if (m.sym === "KRW=X") fx = m.last;
-    if (m.sym === "BTC-KRW") quotes.BTC = { price: m.last, chg: m.chg_pct, name: m.name, currency: "KRW" };
+    if (m.sym === "BTC-KRW") quotes.BTC = { price: m.last, chg: m.chg_pct, name: m.name, barDate: m.date || null, source: "board", currency: "KRW" };
   }
-  return { asof: s.asof, fx, quotes };
+  return { asof: s.asof, fx, quotes, errors: Array.isArray(s.errors) ? s.errors : [] };
 };
 
 function parseRunTime(id) {
@@ -121,7 +121,21 @@ export function levelsModel({ accounts, alerts, alertState, board }) {
   for (const [code, q] of Object.entries(alertState?.quotes || {})) putQuote(quotes, code, { price: q?.price, at: checked, currency: "KRW" });
   const boardAt = board?.asof ? new Date(board.asof) : null;
   for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
-  return { accounts: accounts || {}, alerts, alertState, names, quotes, boardAt, fx: board?.fx || null };
+  return { accounts: accounts || {}, alerts, alertState, names, quotes, boardAt, boardErrors: board?.errors || [], fx: board?.fx || null };
+}
+
+// 수집 시각은 마지막 거래 시각이 아니다. 휴장일에도 올바르게 설명하도록 나누어 반환한다.
+export function quoteStatus(model, now = new Date()) {
+  const asof = model?.boardAt instanceof Date && Number.isFinite(model.boardAt.getTime()) ? model.boardAt : null;
+  const ageMinutes = asof ? Math.max(0, Math.floor((now.getTime() - asof.getTime()) / 60_000)) : null;
+  const errors = Array.isArray(model?.boardErrors) ? model.boardErrors : [];
+  return { asof, ageMinutes, errors, level: errors.length ? "error" : ageMinutes == null ? "missing" : ageMinutes >= 30 ? "old" : "ok" };
+}
+
+export function assetQuotesComplete(accounts, quotes, fx) {
+  return Object.values(accounts || {}).filter(a => Array.isArray(a?.holdings)).every(a =>
+    (!a.cash_usd || !!fx) && a.holdings.every(h => !h.qty ||
+      (quotes?.[h.symbol]?.price != null && (h.currency !== "USD" || !!fx))));
 }
 
 export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE) {
@@ -157,6 +171,28 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
   absorb(m, runs); // 최근 것부터 넣어 같은 종목이면 최근 판단의 이름이 남는다(시세는 시각으로 고른다)
   m.fx ||= m.runs.find(r => r.brief?.fx)?.brief.fx || null;
   return m;
+}
+
+// 자산 탭 전용 경량 로딩. 수천 개의 runs 파일 트리와 최근 판단 20건은 기록 탭을 열 때만 읽는다.
+export async function loadAssetModel(repo) {
+  const [head, accounts, alerts, alertState, board, worth] = await Promise.all([
+    repo.headOnly(),
+    repo.raw("config/accounts.json"),
+    repo.raw("config/price_alerts.json"),
+    repo.raw("reports/alerts_state.json"),
+    repo.board("market--snapshot.json", pickBoard),
+    repo.board("networth--history.json"),
+  ]);
+  const base = levelsModel({ accounts, alerts, alertState, board });
+  // 시세가 빠진 날에는 기존의 '최근 판단 시점 평가액' 대체 표시를 유지한다.
+  // 이때만 판단 기록을 읽으며, 정상 수집 시에는 요청하지 않는다.
+  if (!assetQuotesComplete(accounts, base.quotes, base.fx)) return loadModel(repo);
+  return {
+    ...base,
+    head, worth, light: true,
+    doneIds: [], shown: 0, collectOnly: 0, refCount: 0,
+    runs: [], byId: new Map(), scorecard: [], byRun: {}, notes: {}, openOrders: [],
+  };
 }
 
 // 목록에 보이는 판단: 최근부터 끊김 없이 읽은 만큼

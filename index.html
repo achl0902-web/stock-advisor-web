@@ -164,6 +164,7 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .shell > .top { order: 0; } .shell > .alert { order: 1; } .shell > .tape { order: 2; } #home { order: 3; }
 #home { display: grid; gap: 10px; align-items: start; }
 #home:empty { display: none; }
+#home > .quote-issue { grid-column: 1 / -1; color: var(--up-ink); background: var(--up-wash); }
 @media (min-width: 761px) { #home { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 #home ul { list-style: none; margin: 0; padding: 0; }
 #home a { color: inherit; }
