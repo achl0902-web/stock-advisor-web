@@ -7,7 +7,7 @@ const tokens = read("assets/tokens.css");
 const css = read("assets/app.css");
 const theme = read("assets/theme.js");
 const assets = read("assets/view-assets.js");
-const quotes = read("assets/sise.js");
+const quotes = read("src/chart-app.jsx");
 const page = read("index.html");
 
 function paletteTokens() {
@@ -79,9 +79,13 @@ test("자산 기간 상세 선택은 펼침식이며 기존 날짜·슬라이더
 });
 
 test("시세와 차트 색상이 팔레트에 반응하고 작은 화면에서 정보가 줄바꿈된다", () => {
-  assert.match(quotes, /gc="var\(--up\)",yc="var\(--down\)"/);
-  assert.match(quotes, /color-mix\(in srgb, \$\{l\}/); // heatmap SVG 색상 보간
-  assert.match(quotes, /up:e\("--up"\),down:e\("--down"\)/); // canvas용 실제 색상
+  assert.match(quotes, /UP_COLOR = "var\(--up\)"/);
+  assert.match(quotes, /DOWN_COLOR = "var\(--down\)"/);
+  assert.match(quotes, /upColor: UP_COLOR/); // 공개 TreemapChart에 테마 색 전달
+  assert.match(quotes, /downColor: DOWN_COLOR/);
+  assert.match(quotes, /up: e\("--up"\)/); // canvas용 실제 색상
+  assert.match(quotes, /down: e\("--down"\)/);
+  assert.match(page, /\.heat-body svg > g > text tspan\s*\{\s*fill:\s*#101322\s*!important/);
   assert.match(page, /\.extended-note\s*\{[^}]*-webkit-line-clamp:\s*2/);
   assert.match(page, /max-width:\s*380px/);
 });

@@ -1,64 +1,63 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { BoardDatafeed, buildRegistry } from "../src/board-datafeed.js";
 
-// 원본 JSX가 없는 기존 번들에서 차트 공급자 메서드를 꺼내 검증한다.
-// 번들을 갱신해도 실제 배포 파일의 60분봉 분리 및 과거 조회가 회귀하지 않게 한다.
-const source = readFileSync(new URL("../assets/sise.js", import.meta.url), "utf8");
-const pick = (start, end) => {
-  const a = source.indexOf(start);
-  assert.ok(a >= 0, start + " is present");
-  const b = source.indexOf(end, a + start.length);
-  assert.ok(b > a, end + " is present");
-  return source.slice(a, b);
-};
-const bars = pick("async bars(t,e)", "info(t)");
-const getBars = pick("async getBars(t,e,n)", "subscribeBars(t,e,n,i,a)");
-const Feed = new Function("l1", "s1", "c1", "ww", `return class Feed {
-  constructor(loader){this.loader=loader;this.docs=new Map;this.registry=new Map}
-  load(t){let k=t.col+"/"+t.doc;if(!this.docs.has(k))this.docs.set(k,this.loader(t.col,t.doc).catch(()=>null));return this.docs.get(k)}
-  ${bars}
-  ${getBars}
-}`)(
-  () => "America/New_York",
-  (raw) => raw.t.map((time, i) => ({ time, close: raw.c[i] })),
-  (b) => b,
-  (d) => d,
-);
-const rows = (count, base = 0) => ({ t: Array.from({ length: count }, (_, i) => i + base),
-  c: Array.from({ length: count }, (_, i) => i + base) });
+const days = count => Array.from({ length: count }, (_, i) =>
+  new Date(Date.UTC(2024, 0, 1) + i * 86400000).toISOString().slice(0, 10));
+const rows = (dates, base = 0) => ({
+  t: dates,
+  o: dates.map((_, i) => i + base),
+  h: dates.map((_, i) => i + base),
+  l: dates.map((_, i) => i + base),
+  c: dates.map((_, i) => i + base),
+  v: dates.map(() => 1),
+});
+const sym = { sym: "QLD", col: "bars", doc: "QLD", country: "US", kind: "watch" };
 
-test("60분봉은 별도 파일을 우선하고 요청당 한 번만 읽는다", async () => {
+test("60분봉은 별도 파일을 우선하고 큰 일봉 파일을 내려받지 않는다", async () => {
   const calls = [];
-  const feed = new Feed(async (col, doc) => {
+  const feed = new BoardDatafeed(async (col, doc) => {
     calls.push(col + "/" + doc);
-    return col === "bars" ? { sym: "QLD", d: rows(5), h: rows(1) }
-      : { sym: "QLD", h: rows(220, 10) };
+    return col === "hourly"
+      ? { sym: "QLD", h: rows([1000, 2000, 3000]) }
+      : { sym: "QLD", d: rows(days(1000)), h: rows([500]) };
   });
-  const sym = { col: "bars", doc: "QLD", sym: "QLD" };
-  const once = await feed.bars(sym, "60");
-  const again = await feed.bars(sym, "60");
-  assert.equal(once.length, 220);
-  assert.equal(again.length, 220);
-  assert.deepEqual(calls, ["hourly/QLD"]); // 별도 시간봉이 있으면 큰 일봉 파일은 아예 읽지 않음
+  assert.equal((await feed.bars(sym, "60")).length, 3);
+  assert.equal((await feed.bars(sym, "60")).length, 3);
+  assert.deepEqual(calls, ["hourly/QLD"]);
 });
 
-test("새 시간봉 파일이 없을 때 기존 bars.h로 되돌아간다", async () => {
-  const feed = new Feed(async (col) => col === "bars"
-    ? { sym: "QLD", d: rows(5), h: rows(3) } : null);
-  assert.equal((await feed.bars({ col: "bars", doc: "QLD", sym: "QLD" }, "60")).length, 3);
+test("새 시간봉 파일이 없거나 다른 종목이면 기존 bars.h로 되돌아간다", async () => {
+  const feed = new BoardDatafeed(async col => col === "bars"
+    ? { sym: "QLD", d: rows(days(3)), h: rows([1000, 2000]) }
+    : { sym: "WRONG", h: rows([1000, 2000, 3000]) });
+  assert.equal((await feed.bars(sym, "60")).length, 2);
 });
 
-test("차트 구간 탐색은 countBack만 반환하고 오래된 데이터의 존재를 알린다", async () => {
-  const feed = new Feed(async () => ({ sym: "QLD", d: rows(1000) }));
-  feed.registry.set("QLD", { col: "bars", doc: "QLD", sym: "QLD" });
-  const page1 = await feed.getBars({ symbol: "QLD" }, "1D", { to: 1000, countBack: 250 });
-  assert.equal(page1.bars.length, 250);
-  assert.equal(page1.noMoreData, false);
-  const page2 = await feed.getBars({ symbol: "QLD" }, "1D", { to: page1.bars[0].time - 1, countBack: 250 });
-  assert.equal(page2.bars.length, 250);
-  assert.equal(page2.noMoreData, false);
-  const page3 = await feed.getBars({ symbol: "QLD" }, "1D", { to: 100, countBack: 250 });
-  assert.equal(page3.bars.length, 101);
-  assert.equal(page3.noMoreData, true);
+test("큰 차트는 countBack 단위로 구간 탐색하고 마지막 페이지를 구분한다", async () => {
+  const feed = new BoardDatafeed(async () => ({ sym: "QLD", d: rows(days(1000)) }));
+  feed.registry.set("QLD", sym);
+  const first = await feed.getBars({ symbol: "QLD" }, "1D", { to: Infinity, countBack: 250 });
+  assert.equal(first.bars.length, 250);
+  assert.equal(first.noMoreData, false);
+  const second = await feed.getBars({ symbol: "QLD" }, "1D",
+    { to: first.bars[0].time - 1, countBack: 250 });
+  assert.equal(second.bars.length, 250);
+  assert.equal(second.noMoreData, false);
+  const last = await feed.getBars({ symbol: "QLD" }, "1D",
+    { to: first.bars[0].time - 1, countBack: 1000 });
+  assert.equal(last.bars.length, 750);
+  assert.equal(last.noMoreData, true);
+});
+
+test("차트 등록 정보와 호가 단위는 KRX에 맞게 생성한다", () => {
+  const registry = buildRegistry({ heat_us: [], heat_kr: [], macro: [],
+    watch: [{ yf: "005930.KS", code: "005930", name: "삼성전자", market: "KR",
+      last: 75000, prev: 74000, chg_pct: 1.35, doc: "005930.KS", accounts: [] }] });
+  const feed = new BoardDatafeed(async () => null);
+  feed.registry = registry;
+  const info = feed.info(registry.get("005930.KS"));
+  assert.equal(info.timezone, "Asia/Seoul");
+  assert.equal(info.tickSize(75000), 100);
+  assert.deepEqual(info.supportedResolutions, ["60", "1D", "1W", "1M"]);
 });

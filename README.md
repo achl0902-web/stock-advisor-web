@@ -55,8 +55,10 @@
 - `assets/view-home.js`, `view-log.js`, `view-assets.js`: 탭별 화면
 - `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
 - `assets/app.css`: 판단 일지 스타일
-- `docs/chart-source.md`: 차트 압축 번들 원본·빌드 구성 현황과 복원 절차
-- `index.html`(홈), `assets/sise.js`: 시세판. `sise.html`은 예전 주소를 홈으로 넘기는 빈 페이지. `assets/sise.js`는 Funnest Charts(Apache-2.0)와 React를 함께 묶은 빌드 결과물이라 직접 고치지 않습니다(예외: 차트의 trading 공급자에 `getExecutions`를 한 줄 덧대, 스냅샷 관심종목의 `fills`(내 매수·매도)를 차트에 ▲▼로 찍는다. 수집 완료 확인 간격 3초)(탭과 색은 `sise.html`이 공용 파일로 잇습니다)
+- `docs/chart-source.md`: 2026-11-27 시세판 소스 재구성 경위, 버전, 재빌드·검증 방법
+- `src/board-datafeed.js`, `src/github-board.js`, `src/chart-app.jsx`: 시세판 데이터·GitHub 수집·React 화면의 유지보수용 소스
+- `scripts/build-chart.mjs`: `npm ci && npm run build:chart`로 `assets/sise.js`를 생성. 배포 번들을 직접 수정하지 않습니다.
+- `index.html`(홈), `assets/sise.js`: 시세판 배포 파일. `sise.html`은 예전 주소를 홈으로 넘기는 호환 페이지. Funnest Charts(Apache-2.0)를 사용하며 체결 ▲▼·3초 수집 확인·테마가 소스에 반영되어 있습니다.
 
 ## 가족 보기
 
