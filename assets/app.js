@@ -5,7 +5,7 @@ import { state, loadModel, loadAssetModel, FIRST_PAGE } from "./store.js";
 import { view, esc, ago, icon, sealChars, note } from "./ui.js";
 import { renderRuns, renderScore, renderRun } from "./view-log.js";
 import { renderToday } from "./view-today.js";
-import { renderAccounts, renderLongTerm, renderLevels, renderEtf } from "./view-assets.js";
+import { renderAccounts, renderLevels, renderEtf } from "./view-assets.js";
 
 const DEFAULT_REPO = "achl0902-web/stock-advisor";
 const syncEl = document.getElementById("sync");
@@ -17,10 +17,10 @@ const ROUTES = {
   "market/levels": ["sise", renderLevels], "market/etf": ["sise", renderEtf],
   "log/levels": ["sise", renderLevels], "log/etf": ["sise", renderEtf],
   "runs": ["log", renderRuns, "narrow"], "score": ["log", renderScore, "narrow"],
-  "assets": ["assets", renderAccounts], "assets/pension": ["assets", () => renderLongTerm("pension")], "assets/crypto": ["assets", () => renderLongTerm("crypto")],
-  "accounts": ["assets", renderAccounts], "assets/long": ["assets", () => renderLongTerm("pension")], "assets/levels": ["sise", renderLevels], "assets/etf": ["sise", renderEtf], "etf": ["sise", renderEtf],
+  "assets": ["assets", renderAccounts],
+  "accounts": ["assets", renderAccounts], "assets/levels": ["sise", renderLevels], "assets/etf": ["sise", renderEtf], "etf": ["sise", renderEtf],
 };
-const ASSET_ROUTES = new Set(["assets", "assets/pension", "assets/crypto", "accounts", "assets/long"]);
+const ASSET_ROUTES = new Set(["assets", "accounts"]);
 const currentPath = () => location.hash.replace(/^#\/?/, "").replace(/\/$/, "");
 
 function setTab(tab) {
@@ -38,6 +38,8 @@ if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우�
 function route({ keep = false } = {}) {
   let path = currentPath();
   if (path === "") { location.replace("#/" + (FAMILY ? "assets" : "today")); return; }
+  // 없어진 DC·코인 상세 주소는 단일 통합 자산 화면으로 보낸다.
+  if (["assets/pension", "assets/crypto", "assets/long"].includes(path)) { history.replaceState(null, "", "#/assets"); path = "assets"; }
   if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
   // 자산만 보고 들어온 경우 판단 기록은 읽지 않았다. 기록을 열 때 처음 한 번만 전체 모델로 바꾼다.
   if (state.model?.light && path !== "settings" && !ASSET_ROUTES.has(path)) {

@@ -4,11 +4,12 @@ import { JSDOM } from "jsdom";
 
 test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 토글이 작동한다", async () => {
   const dom = new JSDOM("<!doctype html><main id='view'></main>", { url: "https://example.test/log.html#/today", pretendToBeVisual: true });
-  const old = Object.fromEntries(["window", "document", "location", "addEventListener", "IntersectionObserver"].map(k => [k, globalThis[k]]));
+  const old = Object.fromEntries(["window", "document", "location", "addEventListener", "removeEventListener", "IntersectionObserver"].map(k => [k, globalThis[k]]));
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.location = dom.window.location;
   globalThis.addEventListener = dom.window.addEventListener.bind(dom.window);
+  globalThis.removeEventListener = dom.window.removeEventListener.bind(dom.window);
   globalThis.IntersectionObserver = class { observe() {} disconnect() {} };
   dom.window.saFamily = false;
   try {
@@ -38,12 +39,27 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     assert.equal(root.querySelector('[data-compare-key="main"]').getAttribute("aria-pressed"), "true");
     assert.equal(root.querySelector('[data-compare-key="bio"]').getAttribute("aria-pressed"), "true");
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "false");
-    assert.ok(root.querySelectorAll(".donut").length >= 2);
+    assert.equal(root.querySelectorAll("[data-comparison], [data-compare-mode]").length, 0);
+    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "main", "bio"]);
+    assert.ok(root.querySelectorAll("[data-comp] .donut").length === 1);
+    assert.match(root.querySelector(".account").textContent, /투자수익률/);
     root.querySelector('[data-compare-key="crypto"]').click();
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
-    root.querySelector('[data-compare-mode="total"]').click();
-    assert.equal(root.querySelector('[data-compare-mode="total"]').getAttribute("aria-pressed"), "true");
-    assert.match(root.querySelector(".compare-legend").textContent, /선택 합계/);
+    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "main", "bio", "crypto"]);
+    root.querySelector('[data-compare-key="main"]').click();
+    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "bio", "crypto"]);
+    root.querySelector('[data-comp] [data-acc="crypto"]').click();
+    assert.match(root.querySelector(".account h2").textContent, /비트코인/);
+    root.querySelector('[data-compare-key="bio"]').click();
+    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "crypto"]);
+    root.querySelector('[data-compare-key="crypto"]').click();
+    assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true", "마지막 계좌는 끌 수 없다");
+
+    dom.window.saFamily = true;
+    renderAccounts();
+    assert.deepEqual([...root.querySelectorAll("[data-compare-key]")].map(x => x.dataset.compareKey), ["main", "crypto"]);
+    assert.deepEqual([...root.querySelectorAll("[data-comp] [data-acc]")].map(x => x.dataset.acc), ["all", "main", "crypto"]);
+    assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
   } finally {
     for (const [k, v] of Object.entries(old)) {
       if (v === undefined) delete globalThis[k]; else globalThis[k] = v;
