@@ -43,20 +43,20 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .brand { white-space: nowrap; font-family: var(--font-fig); font-weight: 700; font-size: 22px; letter-spacing: -0.02em; }
 .top-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
-.btn { font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); text-decoration: none; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; min-height: 44px; font-size: 12.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--ink); text-decoration: none; white-space: nowrap; }
 .btn:hover { border-color: var(--accent); }
 .top-right a.btn[href="log.html"] { display: none; } /* 아래 탭이 대신한다 */
 @media (min-width: 1024px) { body { padding-bottom: 24px; } }
 .btn:disabled { opacity: .6; cursor: default; }
 .dot.is-busy { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
-.alert { font-size: 12.5px; padding: 8px 12px; border-radius: 9px; background: var(--accent-wash); color: var(--ink); }
+.alert { font-size: 12.5px; padding: 8px 12px; border-radius: 9px; border-left: 3px solid var(--warn); background: var(--warn-wash); color: var(--warn); }
 .empty-card a { color: var(--accent); }
 .fresh { display: flex; min-width: 0; align-items: flex-start; gap: 6px; color: var(--sub); font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .fresh .dot { flex: none; margin-top: 6px; }
 .fresh-times { display: grid; min-width: 0; gap: 1px; line-height: 1.3; }
 .fresh-times span { white-space: nowrap; }
-.fresh-times span + span { font-size: 11px; opacity: .85; }
+.fresh-times span + span { font-size: 12px; opacity: 1; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash), 0 0 10px var(--accent); }
 
 /* tape */
@@ -66,10 +66,10 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .tick { scroll-snap-align: start; width: 132px; display: grid; gap: 1px; padding: 8px 10px 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; transition: border-color .15s; }
 .tick:hover { border-color: var(--sub); }
 .tick.is-active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-.tick-name { font-size: 11.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tick-name { font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tick-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
 .tick-last { font-family: var(--font-fig); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tick-chg { font-family: var(--font-fig); font-size: 11.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tick-chg { font-family: var(--font-fig); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .tick-spark { display: block; height: 22px; }
 
 /* main grid */
@@ -95,8 +95,8 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .panel-watch > .panel-h { margin: 0 4px 6px; }
 
 /* segmented */
-.seg { display: inline-flex; background: var(--raised); border: 1px solid var(--line); border-radius: 9px; padding: 3px; gap: 2px; }
-.seg button { padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--sub); text-align: center; }
+.seg { display: inline-flex; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg button { min-height: 40px; padding: 6px 12px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--sub); text-align: center; }
 .seg button.on { background: var(--accent); color: var(--accent-ink); }
 .seg-wide { display: flex; } .seg-wide button { flex: 1; }
 
@@ -109,12 +109,13 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .w-row.is-active { background: var(--accent-wash); }
 .w-name { display: grid; min-width: 0; }
 .w-name b { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.w-name small { color: var(--sub); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-name small { color: var(--sub); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-name i { font-style: normal; }
 .w-spark { height: 26px; min-width: 0; }
+@media (max-width: 380px) { .w-row { grid-template-columns: minmax(0, 1fr) minmax(0, 126px); } .w-spark { display: none; } .fresh-times span { white-space: normal; overflow-wrap: anywhere; } .seg button { min-height: 44px; } }
 .w-quote { display: grid; justify-items: end; gap: 2px; min-width: 0; max-width: 138px; }
 /* 미국 장전·장후 가격은 정규 종가 아래에 작은 보조 정보로만 표시한다. */
-.extended-note { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-fig); font-size: 10.5px; line-height: 1.35; color: var(--accent); font-variant-numeric: tabular-nums; }
+.extended-note { display: -webkit-box; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-family: var(--font-fig); font-size: 12px; line-height: 1.35; color: var(--accent); font-variant-numeric: tabular-nums; text-align: right; }
 .ladder-price { min-width: 0; }
 .ladder-price .extended-note { max-width: 180px; margin-left: auto; }
 .w-quote b { font-family: var(--font-fig); font-weight: 600; font-size: 13.5px; font-variant-numeric: tabular-nums; }
@@ -134,7 +135,7 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .pos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 9px; }
 .pos > div { padding: 7px 9px; display: grid; gap: 1px; }
 .pos > div + div { border-left: 1px solid var(--line); }
-.pos dt { font-size: 11px; color: var(--sub); }
+.pos dt { font-size: 12px; color: var(--sub); }
 .pos dd { font-family: var(--font-fig); font-weight: 600; font-variant-numeric: tabular-nums; font-size: 13.5px; }
 .rail { position: relative; margin: 4px 0 2px; }
 .rail-bar { position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(to bottom, var(--line) 0 6px, transparent 6px 10px); }
@@ -142,7 +143,7 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .rung-tick { width: 16px; height: 2px; background: var(--sub); }
 .rung-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sub); }
 .rung-price { font-family: var(--font-fig); font-weight: 600; font-variant-numeric: tabular-nums; }
-.rung-dist { font-family: var(--font-fig); font-variant-numeric: tabular-nums; color: var(--sub); text-align: right; font-size: 12px; }
+.rung-dist { font-family: var(--font-fig); font-variant-numeric: tabular-nums; color: var(--sub); text-align: right; font-size: 12.5px; }
 .rung-now { z-index: 2; }
 .rung-now .rung-tick { height: 14px; width: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-wash); margin-left: 1px; }
 .rung-now .rung-label { color: var(--ink); font-weight: 700; }
