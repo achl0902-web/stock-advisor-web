@@ -196,6 +196,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .rr small { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rr-side { justify-items: end; }
 .rr-side .fig { font-weight: 600; }
+.rr:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 @media (hover: hover) { .rr:hover b { color: var(--accent); } }
 
 /* ---------- 오늘 ---------- */
@@ -259,6 +260,12 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); font-weight: 600; }
 
 /* ---------- 기록 ---------- */
+.log-search { display: grid; gap: 7px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--panel); min-width: 0; }
+.log-search label { font-size: 14px; font-weight: 600; color: var(--sub); }
+.log-search input { display: block; box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--ink); font: inherit; font-size: 16px; }
+.log-search input::placeholder { color: var(--dim); opacity: 1; }
+.log-search input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.run-results { display: grid; gap: 14px; min-width: 0; }
 .day { display: grid; gap: 6px; }
 .day h2, .group > h2 { padding-left: 4px; font-size: 14px; font-weight: 600; color: var(--sub); }
 .foot { padding: 0 4px; }
@@ -268,6 +275,7 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .bars li:first-child { border-top: 0; padding-top: 2px; }
 .bars li:last-child { padding-bottom: 2px; }
 .bars a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; text-decoration: none; }
+.bars a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
 .bar-main, .bar-val { display: grid; gap: 1px; min-width: 0; }
 .bar-main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bars small { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -279,6 +287,12 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .plot-down { background: var(--down); border-radius: 5px 0 0 5px; }
 .bars .hint { margin-top: 8px; }
 .memo { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--warn-wash); font-size: 13px; line-height: 1.5; }
+@media (max-width: 390px) {
+  .rr, .bars a { grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; }
+  .rr-side, .bar-val { grid-column: 2; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 2px 8px; }
+  .rr-side .fig, .bar-val .fig { overflow-wrap: anywhere; }
+  .rr-side small, .bar-val small { white-space: normal; }
+}
 
 /* 판단 상세 */
 .back { justify-self: start; display: inline-flex; align-items: center; min-height: 44px; gap: 2px; margin-left: -6px; padding: 6px 10px 6px 4px; border-radius: 10px; font-size: 14px; color: var(--sub); text-decoration: none; }
