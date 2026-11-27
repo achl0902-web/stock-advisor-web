@@ -108,7 +108,11 @@ body { max-width: 1480px; margin: 0 auto; padding-block: calc(10px + env(safe-ar
 .w-name small { color: var(--sub); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-name i { font-style: normal; }
 .w-spark { height: 26px; min-width: 0; }
-.w-quote { display: grid; justify-items: end; gap: 2px; }
+.w-quote { display: grid; justify-items: end; gap: 2px; min-width: 0; max-width: 138px; }
+/* 미국 장전·장후 가격은 정규 종가 아래에 작은 보조 정보로만 표시한다. */
+.extended-note { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-fig); font-size: 10.5px; line-height: 1.35; color: var(--accent); font-variant-numeric: tabular-nums; }
+.ladder-price { min-width: 0; }
+.ladder-price .extended-note { max-width: 180px; margin-left: auto; }
 .w-quote b { font-family: var(--font-fig); font-weight: 600; font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .chip { font-style: normal; font-family: var(--font-fig); font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 1px 6px; border-radius: 5px; min-width: 58px; text-align: right; }
 .chip.is-up { background: color-mix(in srgb, var(--up) 14%, transparent); }
