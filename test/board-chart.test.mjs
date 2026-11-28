@@ -65,6 +65,39 @@ test("큰 차트는 countBack 단위로 구간 탐색하고 마지막 페이지�
   assert.equal(last.noMoreData, true);
 });
 
+test("차트 처음에는 최근 일봉만 받고 과거 스크롤할 때만 전체 이력을 받는다", async () => {
+  const calls = [];
+  const all = days(1500);
+  const feed = new BoardDatafeed(async (col, doc) => {
+    calls.push(`${col}/${doc}`);
+    if (col === "barsrecent") return { sym: "QLD", d: rows(all.slice(-600)) };
+    if (col === "bars") return { sym: "QLD", d: rows(all) };
+    return null;
+  });
+  feed.registry.set("QLD", sym);
+  const latest = await feed.getBars({ symbol: "QLD" }, "1D", { to: Infinity, countBack: 200 });
+  assert.equal(latest.bars.length, 200);
+  assert.deepEqual(calls, ["barsrecent/QLD"]);
+  const older = await feed.getBars({ symbol: "QLD" }, "1D",
+    { to: latest.bars[0].time - 1, countBack: 750 });
+  assert.equal(older.bars.length, 750);
+  assert.deepEqual(calls, ["barsrecent/QLD", "bars/QLD"]);
+  await feed.getBars({ symbol: "QLD" }, "1D", { to: Infinity, countBack: 200 });
+  assert.equal(calls.length, 2);
+});
+
+test("아직 barsrecent 파일이 없는 배포도 전체 일봉으로 표시한다", async () => {
+  const calls = [];
+  const feed = new BoardDatafeed(async col => {
+    calls.push(col);
+    return col === "bars" ? { sym: "QLD", d: rows(days(5)) } : null;
+  });
+  feed.registry.set("QLD", sym);
+  const result = await feed.getBars({ symbol: "QLD" }, "1D", { to: Infinity, countBack: 3 });
+  assert.equal(result.bars.length, 3);
+  assert.deepEqual(calls, ["barsrecent", "bars"]);
+});
+
 test("차트 등록 정보와 호가 단위는 KRX에 맞게 생성한다", () => {
   const registry = buildRegistry({ heat_us: [], heat_kr: [], macro: [],
     watch: [{ yf: "005930.KS", code: "005930", name: "삼성전자", market: "KR",
@@ -75,4 +108,13 @@ test("차트 등록 정보와 호가 단위는 KRX에 맞게 생성한다", () =
   assert.equal(info.timezone, "Asia/Seoul");
   assert.equal(info.tickSize(75000), 100);
   assert.deepEqual(info.supportedResolutions, ["60", "1D", "1W", "1M"]);
+});
+
+test("신규 상장 첫 거래일은 가격을 표시하되 전일비를 미확인으로 구분한다", () => {
+  const registry = buildRegistry({ heat_us: [], heat_kr: [], macro: [], watch: [
+    { yf: "NEW", code: "NEW", name: "신규 상장", market: "US", last: 42, prev: 42,
+      chg_pct: 0, change_unavailable: true, doc: "NEW", accounts: [] },
+  ] });
+  assert.equal(registry.get("NEW").last, 42);
+  assert.equal(registry.get("NEW").changeUnavailable, true);
 });

@@ -1,5 +1,5 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
-import { ACCOUNT_ORDER, state, accountKeys, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries, quoteStatus } from "./store.js";
+import { ACCOUNT_ORDER, state, accountKeys, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries, quoteStatus, livePositionsMatch } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
 import { normalizeDateRange, shiftDateIndexByDays } from "./date-range.js";
 import { mergedView } from "./portfolio-merge.js";
@@ -94,7 +94,8 @@ function priceStatusBar() {
   const errors = failed.length ? (window.saFamily
     ? `<span>시세 수집 실패 ${failed.length}건</span>`
     : `<details><summary>시세 수집 실패 ${failed.length}건</summary><p>${esc(failed.join(", "))}</p></details>`) : "";
-  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격일은 보유 목록에서 확인</span>${stale}${errors}</aside>`;
+  const fx = state.model.fxStale ? `<span>환율 종가가 지연되어 달러 자산의 현재 원화 환산을 보류했습니다.</span>` : "";
+  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격일은 보유 목록에서 확인</span>${stale}${errors}${fx}</aside>`;
 }
 
 const TOP = 64; // 위 막대 높이(56) + 여유
@@ -270,7 +271,9 @@ function paintTrends(m, t) {
     if (!key) return;
     const inU = usd(), fxNow = m.fx;
     const nowU = inU ? (fxNow && now ? Object.fromEntries(Object.entries(now).map(([k, x]) => [k, x / fxNow])) : null) : now;
-    const { points, marks, sum } = worthSeries(inU ? inUsd(m.worth) : m.worth, key, w, nowU);
+    const keys = Array.isArray(key) ? key : [key];
+    const verifiedLive = !!nowU && livePositionsMatch(m.worth, m.accounts, keys);
+    const { points, marks, sum } = worthSeries(inU ? inUsd(m.worth) : m.worth, key, w, nowU, todayKST(), { verifiedLive });
     if (!sum) { el.innerHTML = `<p class="hint">이 기간에는 평가 기록이 없습니다.</p>`; return; }
     const legend = marks.length ? `<ul class="ln-legend">${marks.map(x => `<li><i></i>${esc(dayText(x.t))} ${esc(x.label)}</li>`).join("")}</ul>` : "";
     el.innerHTML = `
@@ -281,6 +284,7 @@ function paintTrends(m, t) {
       ${line(points, { fmt: inU ? usdShort : krwShort, marks, label: `${label} 평가액과 투자원금 추이${inU ? "(달러 기준)" : ""}` })}
       <p class="ln-key"><span><i class="k-v"></i>평가액</span><span><i class="k-p"></i>투자원금(기초 + 입출금)</span></p>
       ${legend}
+      ${nowU && !verifiedLive && w.to === t.at(-1) ? `<p class="hint tone-warn">최근 이력 이후 계좌의 보유 수량·현금이 달라져, 입출금을 수익으로 오인하지 않도록 추이는 마지막 확인된 기록까지만 표시합니다. 현재 평가액은 상단에 별도 표시됩니다.</p>` : ""}
       ${inU && el.dataset.trend === "0" ? `<p class="hint">달러 기준: 날마다 그날 환율로 평가액과 입출금을 달러로 바꿔 잽니다. 원화 현금·국내 종목은 환율이 오르면 달러로는 손실이고, 미국 종목의 환차익은 빠집니다.</p>` : ""}
       <p class="perf-baseline hint">${sum.from < w.from
         ? `선택 시작일 ${esc(rangeDate(w.from))}의 손익까지 포함하도록 전일 종가(${esc(rangeDate(sum.from))})를 기초로 계산합니다.`
@@ -330,7 +334,7 @@ function holdBlock(v) {
   if (v.cash > 0) slices.push({ key: "cash", label: "현금", value: v.cash, color: CASH });
   const rows = v.rows.map(({ h, q, value, pl, weight }, i) => {
     const unit = h.market === "CRYPTO" ? h.symbol : "주";
-    const priceDay = v.on ? "" : q?.barDate ? `<small class="price-date">종가 ${esc(dayText(q.barDate))}</small>` : q?.at ? `<small class="price-date">확인 ${esc(dateLabel(q.at))}</small>` : "";
+    const priceDay = v.on ? "" : q?.barDate ? `<small class="price-date">${q.invalid ? "지연 종가" : q.source === "KIS" ? "KIS 종가" : "종가"} ${esc(dayText(q.barDate))}</small>` : q?.at ? `<small class="price-date">확인 ${esc(dateLabel(q.at))}</small>` : "";
     return `<li class="hold">
       <div class="hold-top"><b><i class="sw" style="background:${slices[i].color}"></i>${esc(m.names[h.symbol] || h.symbol)}${safe[h.symbol] ? `<span class="tag">안전자산</span>` : ""}${h.leverage > 1 ? `<span class="tag">${h.leverage}배</span>` : ""}</b><span class="fig">${amt(value)}<small>${weight != null ? nf(1).format(weight) + "%" : ""}</small></span></div>
       <div class="hold-sub"><span>${qtyText(h.qty, unit)}${h.avg_price ? `, 평단 ${money(h.avg_price, h.currency)}` : ""}</span><span>${q?.price != null ? `<span class="fig">${money(q.price, h.currency)}</span>${pl != null ? ` <b class="fig tone-${tone(pl)}">${pct(pl)}</b>` : ""}${priceDay}` : "시세 없음"}</span></div>
@@ -345,7 +349,7 @@ function holdBlock(v) {
     ? `${dayText(v.on)} 종가로 잰 그날 보유입니다(끝 손잡이 날짜). 평단과 수익률도 그날까지의 거래로 계산한 값입니다.`
     : v.live
     ? `최근 확보한 시세로 계산했습니다${m.boardAt ? ` (시세판 ${dateLabel(m.boardAt)} 수집)` : ""}. 실시간 가격과 다를 수 있습니다.`
-    : v.fallbackWorthDate ? `시세가 일부 없어 ${esc(dayText(v.fallbackWorthDate))} 자산 이력의 평가총액을 대신 표시합니다. 일부 보유 비중은 확인할 수 없습니다.`
+    : v.fallbackWorthDate ? `시세가 없거나 종가 검증에 실패해 ${esc(dayText(v.fallbackWorthDate))} 자산 이력의 평가총액을 대신 표시합니다. 일부 보유 비중은 확인할 수 없습니다.`
     : v.snap ? `시세가 없는 종목이 있어 ${dateLabel(v.snap.at)} 분석 시점 값입니다. 시세 탭을 한 번 열면 새로 수집합니다.` : "시세가 일부 없어 현재 평가총액을 계산하지 못했습니다. 시세판에서 수집을 확인해 주세요.";
   const expo = v.on ? null : v.snap?.brief.portfolio?.effective_exposure_pct;
   return `<div class="split">

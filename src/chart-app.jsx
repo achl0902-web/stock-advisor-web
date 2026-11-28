@@ -12,6 +12,7 @@ import { LineChart, TreemapChart } from "@funnest/charts-react";
 // 시세 공급자와 GitHub 저장소 통신은 화면 컴포넌트와 분리한다.
 import { BoardDatafeed, buildRegistry, pricePrecision } from "./board-datafeed.js";
 import { GithubBoard, readGithubConfig } from "./github-board.js";
+import { shouldAutoCollect } from "./board-refresh-policy.js";
 
 var UP_COLOR = "var(--up)",
   DOWN_COLOR = "var(--down)",
@@ -80,8 +81,6 @@ function usePaletteSync(t) {
     );
   }, [t]);
 }
-var MAX_SNAPSHOT_AGE_MS = 180000,
-  snapshotAgeMs = (t) => (t ? Date.now() - new Date(t.asof).getTime() : 1 / 0);
 function useBoardData() {
   let [t, e] = React.useState(null),
     [n, i] = React.useState("loading"),
@@ -107,7 +106,7 @@ function useBoardData() {
       ((p.current = !0), o(""));
       try {
         if ((l("불러오는 중"), (await g.refresh()) || !u.current)) await y(g);
-        if (S || snapshotAgeMs(u.current) > MAX_SNAPSHOT_AGE_MS) {
+        if (S || shouldAutoCollect(u.current)) {
           if (
             (l("새 시세 수집 중"),
             await g.collect((m) => l(`새 시세 수집 중 · ${m}초`)))
@@ -130,7 +129,7 @@ function useBoardData() {
       ((d.current = new GithubBoard(S)), x(!1));
       let g = () =>
         document.visibilityState === "visible" &&
-        snapshotAgeMs(u.current) > 600000 &&
+        shouldAutoCollect(u.current) &&
         x(!1);
       return (
         document.addEventListener("visibilitychange", g),
@@ -282,7 +281,7 @@ function MacroTicker({ snap: t, reg: e, active: n, pick: i }) {
                   }),
                   jsx("span", {
                     className: `tick-chg ${changeClass(a.chg_pct)}`,
-                    children: $n(a.chg_pct),
+                    children: a.change_unavailable ? "전일비 없음" : $n(a.chg_pct),
                   }),
                 ],
               }),
@@ -409,7 +408,7 @@ function Watchlist({ reg: t, active: e, pick: n }) {
                         jsx("b", { children: formatQuotePrice(r, r.last) }),
                         jsx("i", {
                           className: `chip ${changeClass(r.chg)}`,
-                          children: $n(r.chg),
+                          children: r.changeUnavailable ? "전일비 없음" : $n(r.chg),
                         }),
                         r.extended &&
                           jsx("small", {
@@ -502,7 +501,7 @@ function PriceLadder({ e: t, feed: e, crypto: n }) {
                   quoteUnit(t) === "원" ? "원" : "",
                 ],
               }),
-              jsx("span", { className: changeClass(t.chg), children: $n(t.chg) }),
+              jsx("span", { className: changeClass(t.chg), children: t.changeUnavailable ? "전일비 없음" : $n(t.chg) }),
               t.extended &&
                 jsx("small", {
                   className: "extended-note",
@@ -794,7 +793,7 @@ function StockBoardApp() {
           e === "loading" &&
             jsx("p", {
               children:
-                "시장 데이터를 불러오는 중이에요. 처음이면 새로 수집하느라 1~2분 걸려요.",
+                "저장된 시장 데이터를 불러오는 중이에요. 처음이면 잠시 걸릴 수 있어요.",
             }),
           e === "empty" &&
             jsx("p", {
@@ -960,7 +959,7 @@ function StockBoardApp() {
       jsx("footer", {
         className: "foot",
         children:
-          "열 때와 새로 불러오기를 누를 때 GitHub에서 새로 수집해요(30~40초). 시세는 yfinance라 거래소보다 늦을 수 있어요. 평단·관심가는 stock-advisor 설정을 따라요. 차트: Funnest Charts.",
+          "시장 운영 중에는 자동 수집하고, 휴장 중에는 기존 종가를 보여 줍니다. 새로 불러오기를 누르면 직접 수집합니다(보통 30~40초). 종가일과 수집일은 다를 수 있습니다. 차트: Funnest Charts.",
       }),
     ],
   });

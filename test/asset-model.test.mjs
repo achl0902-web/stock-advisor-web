@@ -57,6 +57,36 @@ test("assetQuotesComplete: 누락된 가격·환율이 있으면 예전 분석�
   assert.equal(assetQuotesComplete(accounts, { QLD: { price: 70 } }, null), false);
 });
 
+test("미장 종가가 오래되면 현재 평가액·수익률 계산에 사용하지 않는다", () => {
+  const accounts = { main: { cash_usd: 10, holdings: [{ symbol: "NEW", qty: 10, avg_price: 100, currency: "USD" }] } };
+  const board = pickBoard({ asof: "2026-11-28T10:00:00+09:00", watch: [
+    { code: "NEW", yf: "NEW", last: 50, date: "2026-11-24", market: "US" }],
+    required_quotes: { NEW: "2026-11-27" },
+    errors: ["NEW"], stale_quotes: [{ sym: "NEW", date: "2026-11-24", expected: "2026-11-27" }] });
+  const quotes = { ...board.quotes };
+  assert.equal(quotes.NEW.invalid, true);
+  assert.equal(assetQuotesComplete(accounts, quotes, 1400), false);
+  const account = valueAccount(accounts.main, quotes, 1400, { total_krw: 500000 }, { requireVerified: true });
+  assert.equal(account.total, 500000);
+  assert.equal(account.live, false);
+  assert.equal(account.rows[0].value, null);
+  assert.equal(account.rows[0].pl, null);
+});
+
+test("오래된 환율·BTC 종가는 검증 실패로 보류하고 KIS 제공자는 표시한다", () => {
+  const board = pickBoard({ asof: "2026-11-28T10:00:00+09:00",
+    macro: [{ sym: "KRW=X", last: 1400, date: "2026-11-25" },
+      { sym: "BTC-KRW", last: 100000000, date: "2026-11-26" }],
+    watch: [{ code: "QLD", yf: "QLD", last: 75, date: "2026-11-27", market: "US" }],
+    required_quotes: { "KRW=X": "2026-11-27", "BTC-KRW": "2026-11-27", QLD: "2026-11-27" },
+    quote_fallbacks: [{ sym: "QLD", source: "KIS", date: "2026-11-27" }], errors: [] });
+  assert.equal(board.fx, null);
+  assert.equal(board.fxStale, true);
+  assert.equal(board.quotes.BTC.invalid, true);
+  assert.equal(board.quotes.QLD.source, "KIS");
+  assert.equal(board.quotes.QLD.invalid, false);
+});
+
 test("자산 시세가 누락돼도 전체 판단 트리를 다시 읽지 않고 마지막 평가 이력을 활용한다", async () => {
   const calls = [];
   const accounts = { main: { label: "주 계좌", cash_usd: 100, holdings: [
