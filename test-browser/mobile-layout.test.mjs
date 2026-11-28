@@ -364,6 +364,59 @@ test("슬라이더의 손잡이·선택 막대는 날짜가 같거나 반대쪽�
   }
 });
 
+test("스크롤 아래에서도 같은 슬라이더가 상단에 고정되고 기간 변경 후 원래 자리로 돌아온다", { timeout: 60_000 }, async () => {
+  const server = await serveDemo();
+  let browser;
+  try {
+    browser = await launchBrowser();
+    for (const width of [320, 390, 430]) {
+      const context = await browser.newContext({ viewport: { width, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+      const page = await context.newPage();
+      try {
+        await page.goto(server.url, { waitUntil: "networkidle" });
+        await page.locator(".range-custom[open]").waitFor();
+        assert.equal(await page.locator(".range .slider").count(), 1);
+        assert.equal(await page.locator(".range-float[hidden]").count(), 1);
+        await page.locator(".slider").evaluate(el => { el.dataset.sameNode = "yes"; });
+
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        await page.waitForFunction(() => document.querySelector(".range-float")?.hidden === false);
+        assert.equal(await page.locator(".range-float .slider").count(), 1, "아래로 스크롤하면 같은 손잡이를 고정 바로 이동");
+        assert.equal(await page.locator(".slider").count(), 1, "슬라이더 DOM이 복제되지 않음");
+        assert.equal(await page.locator(".range-float .slider").getAttribute("data-same-node"), "yes");
+        const pinned = await page.evaluate(() => {
+          const floating = document.querySelector(".range-float").getBoundingClientRect();
+          const header = document.querySelector(".top").getBoundingClientRect();
+          const slot = document.querySelector(".range-portable-slot").getBoundingClientRect();
+          return { floating: { left: floating.left, right: floating.right, top: floating.top, bottom: floating.bottom },
+            headerBottom: header.bottom, slotHeight: slot.height,
+            scrollWidth: document.documentElement.scrollWidth, viewportWidth: document.documentElement.clientWidth };
+        });
+        assert.ok(pinned.slotHeight >= 90, "원래 자리에 높이를 보존해 스크롤 점프 방지");
+        assert.ok(pinned.floating.top >= pinned.headerBottom - 2, "고정 바가 상단 헤더와 겹치지 않음");
+        assert.ok(pinned.floating.left >= -1 && pinned.floating.right <= width + 1, "고정 바 가로 넘침 없음");
+        assert.ok(pinned.scrollWidth <= pinned.viewportWidth + 1, "페이지 가로 넘침 없음");
+
+        const thumb = page.locator('.range-float .slider input[data-end="from"]');
+        const oldDate = await thumb.getAttribute("aria-valuetext");
+        await page.locator('.range-float [data-select-end="from"]').click();
+        await thumb.focus();
+        await page.keyboard.press("ArrowRight");
+        assert.notEqual(await thumb.getAttribute("aria-valuetext"), oldDate, "고정 바에서 기간 변경 동작");
+
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForFunction(() => document.querySelector(".range-float")?.hidden === true);
+        assert.equal(await page.locator(".range-portable-slot .slider").count(), 1, "상단 복귀 시 원래 위치로 이동");
+        assert.equal(await page.locator(".range-portable-slot .slider").getAttribute("data-same-node"), "yes");
+        assert.equal(await page.locator(".range-float .slider").count(), 0);
+      } finally { await context.close(); }
+    }
+  } finally {
+    await browser?.close();
+    await server.close();
+  }
+});
+
 test("공유 링크는 개인 기록·설정과 토큰 입력을 노출하지 않고 URL 전환을 거부한다", { timeout: 30_000 }, async () => {
   const server = await serveDemo();
   let browser;

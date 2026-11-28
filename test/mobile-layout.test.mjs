@@ -22,14 +22,20 @@ test("모바일 차트 전체 화면 단추와 가로 모드 크기 보정 스�
   assert.match(html, /orientation:\s*landscape/);
 });
 
-test("모바일 하단 내비게이션은 도크이며 중복 고정 슬라이더와 전역 resize 덮어쓰기가 없다", () => {
+test("모바일 하단 도크와 스크롤 고정 슬라이더가 분리되고 range 입력은 복제하지 않는다", () => {
   const css = readFileSync(new URL("../assets/tokens.css", import.meta.url), "utf8");
+  const appCss = readFileSync(new URL("../assets/app.css", import.meta.url), "utf8");
   const assets = readFileSync(new URL("../assets/view-assets.js", import.meta.url), "utf8");
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*?\.tabbar\s*\{[^}]*bottom:\s*0;[^}]*width:\s*100%/);
   assert.match(css, /\.tabbar a\s*\{ border-radius: 12px; \}/);
   assert.doesNotMatch(assets, /\bonresize\s*=/);
-  assert.doesNotMatch(assets, /range-float|floatResizeHandler|floatObs/);
-  assert.doesNotMatch(css, /\.range-float\s*\{/);
+  assert.match(assets, /floating\.append\(portable\)/);
+  assert.match(assets, /slot\.append\(portable\)/);
+  assert.equal((assets.match(/\$\{sliderBox\(t, w\)\}/g) || []).length, 1);
+  assert.match(assets, /addEventListener\("scroll", rangeScrollHandler, \{ passive: true \}\)/);
+  assert.match(assets, /slot\.style\.height = `\$\{portable\.getBoundingClientRect\(\)\.height\}px`/);
+  assert.match(appCss, /\.range-float\s*\{[^}]*position:\s*fixed/);
+  assert.match(appCss, /\.range-float\[hidden\]\s*\{\s*display:\s*none/);
 });
 
 test("320·375·390px 자산 조작부는 한 줄 강제 없이 배치하고 주요 터치 대상으로 44px을 확보한다", () => {

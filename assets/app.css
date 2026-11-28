@@ -438,6 +438,14 @@ html.family #settings-link { display: none; }
 .range { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 10px; padding: 12px 14px 10px; border-radius: var(--r-panel); background: var(--panel); }
 .account-filter + .range { margin-bottom: -7px; border-radius: var(--r-panel) var(--r-panel) 11px 11px; }
 .range + .accounts > .account { border-radius: 11px 11px var(--r-panel) var(--r-panel); }
+/* 스크롤 시 복제본을 만들지 않고 기존 손잡이 DOM을 고정 바 안으로 이동한다. */
+.range-portable-slot { min-width: 0; }
+.range-portable { display: grid; gap: 6px; min-width: 0; }
+.range-float { position: fixed; z-index: 19; top: calc(56px + env(safe-area-inset-top, 0px)); display: block; min-width: 0; max-width: 100vw; padding: 5px 10px 8px; border: 1px solid var(--line-strong); border-radius: 0 0 15px 15px; background: color-mix(in srgb, var(--panel) 95%, transparent); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: 0 12px 26px -10px rgba(0, 0, 0, .7); }
+.range-float[hidden] { display: none; }
+.range-float .range-portable { gap: 2px; }
+.range-float .range-handles { gap: 6px; }
+.range-float .range-handles button { padding: 4px 8px; font-size: 12px; }
 /* 다시 그릴 때 스크롤 보정은 화면 코드가 직접 한다(브라우저 보정과 겹치지 않게) */
 html { overflow-anchor: none; scroll-padding-top: calc(112px + env(safe-area-inset-top, 0px)); scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 24px); }
 .range .seg { background: var(--raised); }
@@ -501,7 +509,7 @@ html { overflow-anchor: none; scroll-padding-top: calc(112px + env(safe-area-ins
 .slider input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ink); outline-offset: 3px; }
 .slider input:focus-visible::-moz-range-thumb { outline: 2px solid var(--ink); outline-offset: 3px; }
 /* 날짜 선택기/가상 키보드가 열린 동안 하단 고정 메뉴가 입력 위를 덮지 않게 한다. */
-.date-editing .tabbar { visibility: hidden !important; pointer-events: none !important; }
+.date-editing .tabbar, .date-editing .range-float { visibility: hidden !important; pointer-events: none !important; }
 .range-dates { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--dim); }
 .range-dates b { font-size: 15px; font-weight: 600; color: var(--ink); }
 
