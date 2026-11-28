@@ -261,9 +261,12 @@ test("모바일 손잡이가 겹쳐도 선택·1일 조정·트랙 탭이 가능
     assert.notEqual(await from.getAttribute("aria-valuetext"), lastSpoken, "막대 빈 곳 탭으로 날짜를 이동할 수 없음");
 
     await page.locator('[data-date="from"]').focus();
+    // iOS/WebKit은 native date 입력을 강제 focus()만으로 활성화하지 않는 경우가 있다.
+    // 실제 손가락 터치 시작 시에도 도크를 감춰야 한다.
+    await page.locator('[data-date="from"]').dispatchEvent("pointerdown", { pointerType: "touch" });
     assert.equal(await page.locator("html").evaluate(el => el.classList.contains("date-editing")), true);
     assert.equal(await page.locator(".tabbar").evaluate(el => getComputedStyle(el).visibility), "hidden");
-    await page.locator('[data-date="from"]').blur();
+    await page.locator('.account-filter-title').dispatchEvent("pointerdown", { pointerType: "touch" });
     await page.waitForFunction(() => !document.documentElement.classList.contains("date-editing"));
     assert.notEqual(await page.locator(".tabbar").evaluate(el => getComputedStyle(el).visibility), "hidden");
   } finally {

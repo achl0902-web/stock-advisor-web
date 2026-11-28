@@ -116,6 +116,13 @@ const TOP = 64; // 위 막대 높이(56) + 여유
 let floatObs = null;
 let floatResizeHandler = null;
 // iOS 날짜 선택기/키보드가 열린 동안 하단 도크를 감춘다. 닫으면 그대로 복원한다.
+// WebKit의 native date picker는 focus() 없이도 열릴 수 있어 실제 pointer/click도 감지한다.
+addEventListener("pointerdown", e => {
+  document.documentElement.classList.toggle("date-editing", !!e.target.closest?.(".date-select"));
+}, { capture: true });
+addEventListener("click", e => {
+  if (e.target.closest?.(".date-select")) document.documentElement.classList.add("date-editing");
+});
 addEventListener("focusin", e => {
   if (e.target.matches?.('input[data-date]')) document.documentElement.classList.add("date-editing");
 });
@@ -123,6 +130,9 @@ addEventListener("focusout", e => {
   if (e.target.matches?.('input[data-date]')) queueMicrotask(() => {
     if (!document.activeElement?.matches?.('input[data-date]')) document.documentElement.classList.remove("date-editing");
   });
+});
+addEventListener("change", e => {
+  if (e.target.matches?.('input[data-date]')) document.documentElement.classList.remove("date-editing");
 });
 function bindRange() {
   const t = state.model.worth?.t;
