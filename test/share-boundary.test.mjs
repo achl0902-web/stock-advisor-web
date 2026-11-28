@@ -16,6 +16,7 @@ test("공유 표시에서는 view=all URL로 개인 모드가 열리지 않고 �
     assert.equal(dom.window.saFamily, true);
     assert.equal(dom.window.localStorage.getItem("sa:view"), "family");
     assert.deepEqual([...dom.window.document.querySelectorAll("#tabbar a")].map(a => a.dataset.tab), ["assets", "sise"]);
+    assert.match(dom.window.document.querySelector('[data-tab="sise"]').getAttribute("href"), /\?view=family#market$/);
   } finally { dom.window.close(); }
 });
 

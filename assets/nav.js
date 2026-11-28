@@ -24,11 +24,13 @@
   var here = page === "log" ? (/^#\/(assets(\/(long|pension|crypto))?\/?$|accounts)/.test(location.hash) ? "assets"
     : /^#\/today\/?$/.test(location.hash) ? "today"
     : /^#\/(market\/|log\/(levels|etf)|assets\/(levels|etf)|etf)/.test(location.hash) ? "sise" : "log") : page;
-  var pre = page === "sise" ? "log.html" : "";
+  // 저장소 접근이 제한되어 localStorage가 막힌 브라우저에서도 공유 모드를 유지한다.
+  var familyQuery = window.saFamily ? "?view=family" : "";
+  var pre = page === "sise" ? "log.html" + familyQuery : "";
   var TABS = [
     ["today", "오늘", pre + "#/today", '<path d="M3 10.5 12 3l9 7.5V21h-7v-7h-4v7H3z"/>'],
     ["assets", "자산", pre + "#/assets", '<circle cx="12" cy="12" r="8"/><path d="M12 4v8l6.2 5"/>'],
-    ["sise", "시장", "./index.html#market", '<path d="M7 4.5v3M7 14.5v5M17 4.5v5M17 16.5v3"/><rect x="5" y="7.5" width="4" height="7" rx="1"/><rect x="15" y="9.5" width="4" height="7" rx="1"/>'],
+    ["sise", "시장", "./index.html" + familyQuery + "#market", '<path d="M7 4.5v3M7 14.5v5M17 4.5v5M17 16.5v3"/><rect x="5" y="7.5" width="4" height="7" rx="1"/><rect x="15" y="9.5" width="4" height="7" rx="1"/>'],
     ["log", "기록", pre + "#/log", '<path d="M8.5 7h10.5M8.5 12h10.5M8.5 17h10.5"/><path d="M4.5 7h.01M4.5 12h.01M4.5 17h.01" stroke-width="2.4"/>'],
   ];
   if (window.saFamily) TABS = TABS.filter(function (t) { return t[0] === "assets" || t[0] === "sise"; });
