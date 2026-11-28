@@ -148,16 +148,66 @@ test("실제 DOM에서 계좌·기간 조작은 성과에 반영되고 슬라이
     const response = await page.goto(server.url, { waitUntil: "networkidle" });
     assert.equal(response?.status(), 200, "가상 데이터 미리보기 HTML 응답 오류");
     await page.locator(".range-custom[open]").waitFor({ timeout: 10_000 });
-    const before = await page.locator(".account").first().innerText();
+    const total = page.locator(".account [data-total]");
+    const investmentReturn = page.locator(".account .perf > div").last().locator("b");
+    const before = {
+      total: await total.innerText(),
+      investmentReturn: await investmentReturn.innerText(),
+    };
     await page.locator('[data-compare-key="pension"]').click();
     assert.equal(await page.locator('[data-compare-key="pension"]').getAttribute("aria-pressed"), "true");
-    assert.notEqual(await page.locator(".account").first().innerText(), before);
+    assert.notEqual(await total.innerText(), before.total, "계좌 토글에 평가액 합계가 연동되지 않음");
+    assert.notEqual(await investmentReturn.innerText(), before.investmentReturn, "계좌 토글에 투자수익률이 연동되지 않음");
     assert.equal(await page.locator(".range-custom").getAttribute("open"), "");
     const oldRange = await page.locator(".range-summary .range-dates").innerText();
     await page.locator(".range-top button").filter({ hasText: "1주" }).click();
     assert.notEqual(await page.locator(".range-summary .range-dates").innerText(), oldRange);
     assert.equal(await page.locator(".range-custom").getAttribute("open"), "");
     assert.equal(await page.getByText("선택 계좌 구성", { exact: true }).count(), 0);
+  } finally {
+    await browser?.close();
+    await server.close();
+  }
+});
+
+test("WCAG 2.2: 기간 손잡이를 키보드로 조작하고 모든 테마의 기본 텍스트 대비를 보장한다", { timeout: 30_000 }, async () => {
+  const server = await serveDemo();
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const response = await page.goto(server.url, { waitUntil: "networkidle" });
+    assert.equal(response?.status(), 200);
+    await page.locator(".range-custom[open]").waitFor({ timeout: 10_000 });
+    const thumb = page.locator('.range:not(.range-float) input[data-end="from"]');
+    const before = await thumb.getAttribute("aria-valuetext");
+    await thumb.focus();
+    await page.keyboard.press("ArrowRight");
+    assert.notEqual(await thumb.getAttribute("aria-valuetext"), before, "키보드 방향키가 시작일을 변경하지 못함");
+    assert.equal(await page.locator(".range-custom").getAttribute("open"), "");
+
+    const scores = await page.evaluate(() => {
+      const luminance = (hex) => {
+        const rgb = hex.match(/[0-9a-f]{2}/gi).map((x) => parseInt(x, 16) / 255);
+        const linear = rgb.map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+      };
+      const contrast = (a, b) => {
+        const x = luminance(a), y = luminance(b);
+        return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+      };
+      return ["default", "storm", "cobalt", "espresso"].flatMap((palette) => {
+        if (palette === "default") document.documentElement.removeAttribute("data-palette");
+        else document.documentElement.dataset.palette = palette;
+        const tokens = getComputedStyle(document.documentElement);
+        const color = (name) => tokens.getPropertyValue(`--${name}`).trim();
+        return ["ink", "sub", "dim"].flatMap((fg) => ["panel", "raised"].map((bg) => ({
+          palette, fg, bg, contrast: contrast(color(fg), color(bg)),
+        })));
+      });
+    });
+    const insufficient = scores.filter((x) => x.contrast < 4.5);
+    assert.deepEqual(insufficient, [], `일반 텍스트 WCAG AA 대비 미달: ${JSON.stringify(insufficient)}`);
   } finally {
     await browser?.close();
     await server.close();
