@@ -38,6 +38,7 @@ test("nearest: 닿지 않은 선을 현재가에서 가까운 순으로, 이미 
   assert.ok(rows[0].dist < 0 && !rows[0].reached);
   assert.equal(nearest(items, { QLD: { price: 77 } })[0].reached, true); // <= 조건을 이미 넘음
   assert.equal(nearest(items, {}).length, 0); // 시세가 없으면 거리를 못 잰다
+  assert.equal(nearest(items, { QLD: { price: 77, invalid: true } }).length, 0); // 지연 종가로 도달 여부 판정 금지
 });
 
 test("upcoming: 알리지 않은 날짜를 이른 순으로", () => {
@@ -70,7 +71,7 @@ test("levelLabel·levelNote: 알림 문구에서 이름과 설명을 나눈다",
   assert.equal(levelNote("설명 없음"), "");
 });
 
-import { worthSeries } from "../assets/store.js";
+import { worthSeries, livePositionsMatch } from "../assets/store.js";
 test("worthSeries: 입출금을 뺀 투자손익·수익률, 기간 중 생긴 계좌는 입금으로", () => {
   const worth = { t: ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"],
     v: { a: [100, 120, 230, 220], c: [null, null, 50, 60] },
@@ -89,7 +90,7 @@ test("worthSeries: 입출금을 뺀 투자손익·수익률, 기간 중 생긴 �
   // 기간 11/3~11/3: 기초는 전날(11/2) 마감 120, 11/3에 100 입금하고 230 → 손익 10
   assert.deepEqual(worthSeries(worth, "a", { from: "2026-11-03", to: "2026-11-03" }, null, "2026-11-04").sum,
     { from: "2026-11-02", to: "2026-11-03", base: 120, end: 230, flows: 100, principal: 220, pnl: 10, rate: 10 / 220 * 100 });
-  const live = worthSeries(worth, "a", {}, { a: 250 }, "2026-11-05");
+  const live = worthSeries(worth, "a", {}, { a: 250 }, "2026-11-05", { verifiedLive: true });
   assert.equal(live.points.at(-1).t, "지금");
   assert.equal(live.sum.pnl, 50);
   // 그 계좌가 생기기 전 날은 앞에서 잘라 낸다
@@ -137,9 +138,22 @@ test("worthSeries: 일부 계좌만 현재가가 있으면 과거 금액을 섞�
   const partial = worthSeries(worth, ["a", "b"], {}, { a: 120 }, "2026-11-27");
   assert.equal(partial.points.at(-1).t, "2026-11-26");
   assert.equal(partial.sum.end, 320);
-  const complete = worthSeries(worth, ["a", "b"], {}, { a: 120, b: 220 }, "2026-11-27");
+  const complete = worthSeries(worth, ["a", "b"], {}, { a: 120, b: 220 }, "2026-11-27", { verifiedLive: true });
   assert.equal(complete.points.at(-1).t, "지금");
   assert.equal(complete.sum.end, 340);
   const missing = worthSeries(worth, ["a", "b"], {}, { a: Number.NaN, b: 220 }, "2026-11-27");
   assert.equal(missing.points.at(-1).t, "2026-11-26");
+});
+
+test("입출금이 반영되지 않은 지금 평가액을 투자수익으로 만들지 않는다", () => {
+  const w = { t: ["2026-11-26", "2026-11-27"], v: { main: [100, 100] },
+    f: { main: [0, 0] }, pos: { main: [[1, { QLD: 1 }, 0, 0]] } };
+  const same = { main: { holdings: [{ symbol: "QLD", qty: 1 }], cash_krw: 0, cash_usd: 0 } };
+  const deposited = { main: { ...same.main, cash_krw: 900 } };
+  assert.equal(livePositionsMatch(w, same, ["main"]), true);
+  assert.equal(livePositionsMatch(w, deposited, ["main"]), false);
+  assert.equal(livePositionsMatch(w, { main: { ...same.main, holdings: [{ symbol: "NEW", qty: 1 }] } }, ["main"]), false);
+  const unsafe = worthSeries(w, "main", {}, { main: 1000 }, "2026-11-28");
+  assert.equal(unsafe.sum.pnl, 0);
+  assert.equal(unsafe.points.at(-1).t, "2026-11-27");
 });

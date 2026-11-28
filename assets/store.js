@@ -33,17 +33,34 @@ const pickBrief = b => ({
 const pickDecision = d => ({ decision: d.decision, confidence: d.confidence, gist: sentences(d.rationale, 2) });
 const pickAccount = a => ({ id: a.id, purpose: a.purpose, holdings: (a.holdings || []).map(h => ({ symbol: h.symbol })) });
 export const pickBoard = s => {
+  const required = s.required_quotes || {};
+  const delayed = new Set((s.stale_quotes || []).map(x => x.sym));
+  const failed = new Set(s.errors || []);
+  const fallbacks = new Set((s.quote_fallbacks || []).filter(x => x.source === "KIS").map(x => x.sym));
   const quotes = {};
-  for (const w of s.watch || []) quotes[w.code] = { price: w.last, chg: w.chg_pct, name: w.name, barDate: w.date || null, source: "board", currency: w.market === "US" ? "USD" : "KRW" };
+  const invalid = (sym, date) => delayed.has(sym) || failed.has(sym) || !!(required[sym] && (!date || date < required[sym]));
+  for (const w of s.watch || []) {
+    const sym = w.yf || w.code;
+    quotes[w.code] = { price: w.last, chg: w.chg_pct, name: w.name, barDate: w.date || null,
+      expectedDate: required[sym] || null, invalid: invalid(sym, w.date) || failed.has(w.code),
+      verified: true, source: fallbacks.has(sym) ? "KIS" : "board", currency: w.market === "US" ? "USD" : "KRW" };
+  }
   let fx = null;
+  let fxStale = false;
   for (const m of s.macro || []) {
-    if (m.sym === "KRW=X") fx = m.last;
-    if (m.sym === "BTC-KRW") quotes.BTC = { price: m.last, chg: m.chg_pct, name: m.name, barDate: m.date || null, source: "board", currency: "KRW" };
+    if (m.sym === "KRW=X") {
+      fxStale = invalid(m.sym, m.date);
+      fx = fxStale ? null : m.last;
+    }
+    if (m.sym === "BTC-KRW" && !quotes.BTC) quotes.BTC = {
+      price: m.last, chg: m.chg_pct, name: m.name, barDate: m.date || null,
+      expectedDate: required[m.sym] || null, invalid: invalid(m.sym, m.date),
+      verified: true, source: "board", currency: "KRW" };
   }
   const stale = (Array.isArray(s.stale_quotes) ? s.stale_quotes : [])
     .filter(x => x && typeof x.sym === "string")
     .map(x => ({ sym: x.sym, date: x.date || null, expected: x.expected || null }));
-  return { asof: s.asof, fx, quotes, errors: Array.isArray(s.errors) ? s.errors : [], stale };
+  return { asof: s.asof, fx, fxStale, quotes, errors: Array.isArray(s.errors) ? s.errors : [], stale };
 };
 
 function parseRunTime(id) {
@@ -124,8 +141,14 @@ export function levelsModel({ accounts, alerts, alertState, board }) {
   for (const [code, q] of Object.entries(alertState?.quotes || {})) putQuote(quotes, code, { price: q?.price, at: checked, currency: "KRW" });
   const boardAt = board?.asof ? new Date(board.asof) : null;
   for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
+  // 알림 시세·옛 판단 시세가 더 최근에 수집됐더라도, 검증 실패한 종가를
+  // '현재 평가액'에 다시 투입할 수는 없다.
+  for (const [code, q] of Object.entries(board?.quotes || {})) {
+    if (q.invalid) quotes[code] = { ...quotes[code], invalid: true, verified: false, barDate: q.barDate };
+  }
   return { accounts: accounts || {}, alerts, alertState, names, quotes, boardAt,
-    boardErrors: board?.errors || [], boardStale: board?.stale || [], fx: board?.fx || null };
+    boardErrors: board?.errors || [], boardStale: board?.stale || [], fx: board?.fx || null,
+    fxStale: !!board?.fxStale };
 }
 
 // 수집 시각은 마지막 거래 시각이 아니다. 휴장일에도 올바르게 설명하도록 나누어 반환한다.
@@ -141,7 +164,7 @@ export function quoteStatus(model, now = new Date()) {
 export function assetQuotesComplete(accounts, quotes, fx) {
   return Object.values(accounts || {}).filter(a => Array.isArray(a?.holdings)).every(a =>
     (!a.cash_usd || !!fx) && a.holdings.every(h => !h.qty ||
-      (quotes?.[h.symbol]?.price != null && (h.currency !== "USD" || !!fx))));
+      (quotes?.[h.symbol]?.price != null && !quotes[h.symbol].invalid && (h.currency !== "USD" || !!fx))));
 }
 
 export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE) {
@@ -175,7 +198,7 @@ export async function loadModel(repo, onProgress = () => {}, count = FIRST_PAGE)
     notes: notes || {}, openOrders: openOrders?.orders || [], worth,
   };
   absorb(m, runs); // 최근 것부터 넣어 같은 종목이면 최근 판단의 이름이 남는다(시세는 시각으로 고른다)
-  m.fx ||= m.runs.find(r => r.brief?.fx)?.brief.fx || null;
+  // 옛 판단의 환율은 자산 '현재' 원화 환산에 사용하지 않는다.
   return m;
 }
 
@@ -237,14 +260,15 @@ export function accountKeys(accounts) {
 }
 
 // 계좌 평가: 모든 보유 종목의 시세(와 달러면 환율)가 있으면 지금 시세로, 하나라도 없으면 최근 분석 시점 값으로.
-export function valueAccount(a, quotes, fx, snapshot) {
+export function valueAccount(a, quotes, fx, snapshot, { requireVerified = false } = {}) {
   const rows = a.holdings.map(h => {
     const q = quotes[h.symbol] || null;
+    const usable = q && !q.invalid && (!requireVerified || q.verified);
     const k = h.currency === "USD" ? fx : 1;
     return {
       h, q,
-      value: !h.qty ? 0 : q?.price != null && k ? h.qty * q.price * k : null,
-      pl: q?.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null,
+      value: !h.qty ? 0 : usable && q.price != null && k ? h.qty * q.price * k : null,
+      pl: usable && q.price && h.avg_price ? (q.price / h.avg_price - 1) * 100 : null,
     };
   });
   const cashMissingFx = !!a.cash_usd && !fx;
@@ -264,7 +288,7 @@ export function accountView(key) {
   const history = m.worth?.v?.[key];
   const last = history?.findLastIndex(v => Number.isFinite(v)) ?? -1;
   const fallback = last >= 0 ? { total_krw: history[last] } : snap?.brief.portfolio;
-  const value = valueAccount(a, m.quotes, m.fx, fallback);
+  const value = valueAccount(a, m.quotes, m.fx, fallback, { requireVerified: true });
   return { key, a, snap, ...value, fallbackWorthDate: !value.live && last >= 0 ? m.worth.t[last] : null };
 }
 
@@ -308,6 +332,26 @@ export function viewOn(key, i) {
 // 달러 기준 추이: 그날 환율로 평가액·입출금을 달러로 바꾼다. 실현손익·배당은 달러 원가로 다시 잰 값(networth의 *_usd).
 // 환율이 없는 날은 앞 날 환율. 기록에 환율이 없으면(예전 자료) null
 const usdMemo = new WeakMap();
+
+// 오늘 입출금/신규 매수 정보가 아직 history에 반영되지 않았으면 평가액 차이를
+// 전부 투자손익으로 오해한다. 마지막 이력의 보유 수량과 현금이 현재 설정과
+// 일치하는 계좌만 '지금' 평가액을 추이에 추가한다.
+export function livePositionsMatch(worth, accounts, keys) {
+  if (!worth?.t?.length || !worth.pos) return false;
+  const end = worth.t.length - 1;
+  const equal = (a, b, tolerance = 1e-7) => Number.isFinite(+a) && Number.isFinite(+b) && Math.abs(+a - +b) <= tolerance;
+  return keys.every(k => {
+    const records = worth.pos[k], account = accounts?.[k];
+    if (!records?.length || !account?.holdings) return false;
+    const record = [...records].reverse().find(x => x[0] <= end);
+    if (!record) return false;
+    const held = Object.fromEntries(account.holdings.filter(h => h.qty).map(h => [h.symbol, h.qty]));
+    const prev = Object.fromEntries(Object.entries(record[1] || {}).filter(([, qty]) => qty));
+    if (Object.keys(held).length !== Object.keys(prev).length ||
+        !Object.entries(held).every(([sym, qty]) => equal(qty, prev[sym]))) return false;
+    return equal(account.cash_krw || 0, record[2] || 0, 1) && equal(account.cash_usd || 0, record[3] || 0, 0.01);
+  });
+}
 export function inUsd(worth) {
   if (!worth?.fx?.some(x => x)) return null;
   if (usdMemo.has(worth)) return usdMemo.get(worth);
@@ -319,7 +363,7 @@ export function inUsd(worth) {
   return out;
 }
 
-export function worthSeries(worth, key, win = {}, now = null, today = todayKST()) {
+export function worthSeries(worth, key, win = {}, now = null, today = todayKST(), { verifiedLive = false } = {}) {
   const empty = { points: [], marks: [], sum: null };
   if (!worth?.t?.length) return empty;
   const keys = Array.isArray(key) ? key.filter(k => worth.v[k]) : key === "all" ? Object.keys(worth.v) : [key];
@@ -346,7 +390,7 @@ export function worthSeries(worth, key, win = {}, now = null, today = todayKST()
   rows = rows.slice(lead);
   // 최신 계좌 평가액이 하나라도 누락되면 과거 총액과 섞지 않는다.
   const activeKeys = keys.filter(k => first[k] >= 0);
-  if (now && end >= worth.t.at(-1) && activeKeys.length &&
+  if (verifiedLive && now && end >= worth.t.at(-1) && activeKeys.length &&
       activeKeys.every(k => Number.isFinite(now[k]))) {
     const by = Object.fromEntries(activeKeys.map(k => [k, now[k]]));
     if (rows.at(-1).t === today) rows.at(-1).by = { ...rows.at(-1).by, ...by };
@@ -417,7 +461,7 @@ export function nearest(items, quotes, n = 5) {
   const rows = [];
   for (const it of items) {
     const q = quotes[it.code];
-    if (!q?.price) continue;
+    if (!q?.price || q.invalid) continue; // 지연 종가로 관심가 도달 여부를 판단하지 않는다.
     for (const p of it.prices) {
       if (p.fired) continue;
       const dist = (p.price / q.price - 1) * 100;

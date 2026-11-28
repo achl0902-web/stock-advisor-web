@@ -24,7 +24,7 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
       holdings: [{ symbol: k, qty: 1, avg_price: 100, currency: "KRW" }],
     }]));
     state.model = {
-      accounts, quotes: Object.fromEntries(Object.keys(accounts).map(k => [k, { price: 100 }])),
+      accounts, quotes: Object.fromEntries(Object.keys(accounts).map(k => [k, { price: 100, verified: true }])),
       fx: 1350, boardAt: new Date(), boardErrors: [], names: {},
       worth: { t, v: { main: [100, 105, 110, 112], bio: [40, 42, 44, 46], pension: [300, 300, 301, 302], crypto: [30, 31, 32, 33] },
         f: Object.fromEntries(Object.keys(accounts).map(k => [k, [0, 0, 0, 0]])), fx: [1350, 1350, 1350, 1350], trades: {}, events: {} },

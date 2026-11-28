@@ -12,7 +12,7 @@ test("미국 장전·장후 시세는 신선도가 확인된 경우에만 정규
   assert.match(source, /r\.extended\.session === "pre" \? "장전" : "장후"/);
   assert.match(source, /t\.extended\.session === "pre" \? "장전" : "장후"/);
   assert.match(source, /children: formatQuotePrice\(r, r\.last\)/); // 기존 정규장 종가 유지
-  assert.match(source, /children: \$n\(r\.chg\)/); // 기존 등락률 유지
+  assert.match(source, /children: r\.changeUnavailable \? "전일비 없음" : \$n\(r\.chg\)/); // 신규 상장 첫날만 비교불가, 나머지는 등락률 유지
 });
 
 test("좁은 모바일 시세 종목 행에서 연장장 가격이 가로폭을 넘지 않는다", () => {

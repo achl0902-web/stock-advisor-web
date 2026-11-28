@@ -65,6 +65,7 @@ export function buildRegistry(t) {
       last: n.last,
       prev: n.prev,
       chg: n.chg_pct,
+      changeUnavailable: !!n.change_unavailable,
       spark: n.spark,
       col: "bars",
       doc: n.doc,
@@ -86,6 +87,7 @@ export function buildRegistry(t) {
       last: n.last,
       prev: n.prev,
       chg: n.chg_pct,
+      changeUnavailable: !!n.change_unavailable,
       spark: n.spark,
       col: "bars",
       doc: n.doc,
@@ -209,18 +211,19 @@ export class BoardDatafeed {
         e.cb({ price: n.last, change: n.last - n.prev, changePercent: n.chg });
     }
   }
-  load(symbol) {
-    const cacheKey = `${symbol.col}/${symbol.doc}`;
+  load(symbol, recent = false) {
+    const collection = recent && symbol.col === "bars" ? "barsrecent" : symbol.col;
+    const cacheKey = `${collection}/${symbol.doc}`;
     if (!this.docs.has(cacheKey)) {
-      this.docs.set(cacheKey, this.loader(symbol.col, symbol.doc).catch(() => null));
+      this.docs.set(cacheKey, this.loader(collection, symbol.doc).catch(() => null));
     }
     return this.docs.get(cacheKey);
   }
-  async bars(symbol, resolution) {
+  async bars(symbol, resolution, full = false) {
     // 좌우 이동·확대할 때 동일 종목·주기를 반복 요청하므로 변환한 봉까지 캐시한다.
-    const key = `${symbol.col}/${symbol.doc}/${symbol.sym}/${resolution}`;
+    const key = `${symbol.col}/${symbol.doc}/${symbol.sym}/${resolution}/${full ? "full" : "recent"}`;
     if (!this.candles.has(key)) {
-      const pending = this.readBars(symbol, resolution).catch(error => {
+      const pending = this.readBars(symbol, resolution, full).catch(error => {
         if (this.candles.get(key) === pending) this.candles.delete(key);
         throw error;
       });
@@ -228,7 +231,7 @@ export class BoardDatafeed {
     }
     return this.candles.get(key);
   }
-  async readBars(symbol, resolution) {
+  async readBars(symbol, resolution, full = false) {
     const timezone = exchangeTimezone(symbol);
     if (resolution === "60" && symbol.col === "bars") {
       // 별도 시간봉을 우선 조회하면 10년치 일봉 파일을 다운로드하지 않아도 된다.
@@ -242,11 +245,12 @@ export class BoardDatafeed {
       }
     }
     // 이전 배포본은 bars.h만 갖고 있으므로 읽기 호환성을 유지한다.
-    const doc = await this.load(symbol);
-    if (!doc) return [];
-    if (resolution === "60") return doc.h ? toCandles(doc.h, timezone, true) : [];
+    const doc = await this.load(symbol, !full && resolution !== "60");
+    const resolved = doc || await this.load(symbol); // 아직 barsrecent 파일이 없는 배포와 호환
+    if (!resolved) return [];
+    if (resolution === "60") return resolved.h ? toCandles(resolved.h, timezone, true) : [];
 
-    const daily = symbol.col === "heatbars" ? doc.items?.[symbol.sym] : doc.d;
+    const daily = symbol.col === "heatbars" ? resolved.items?.[symbol.sym] : resolved.d;
     if (!daily) return [];
     const candles = toCandles(daily, timezone, false);
     if (resolution === "1W") return aggregateCandles(candles, daily.t, weekStart);
@@ -302,9 +306,16 @@ export class BoardDatafeed {
   async getBars(symbolInfo, resolution, request) {
     const symbol = this.registry.get(symbolInfo.symbol);
     if (!symbol) return { bars: [], noMoreData: true };
-    const available = (await this.bars(symbol, resolution))
-      .filter(candle => candle.time <= request.to);
-    const bars = available.slice(-Math.max(1, request.countBack || 300));
+    let candles = await this.bars(symbol, resolution);
+    let available = candles.filter(candle => candle.time <= request.to);
+    const requested = Math.max(1, request.countBack || 300);
+    // 처음 화면은 가벼운 최근 봉만, 더 과거로 이동하면 기존 전체 일봉을 지연 로드한다.
+    if (symbol.col === "bars" && resolution !== "60" && candles.length &&
+        (request.to < candles[0].time || available.length < requested)) {
+      candles = await this.bars(symbol, resolution, true);
+      available = candles.filter(candle => candle.time <= request.to);
+    }
+    const bars = available.slice(-requested);
     return { bars, noMoreData: bars.length === available.length };
   }
   subscribeBars(t, e, n, i, a) {
