@@ -39,7 +39,7 @@ function presetWindow(t) {
 }
 
 // 기간 고르기: 버튼(1주~전체)과 시작·끝 손잡이 두 개짜리 슬라이더. 화면 위에 하나, 아래 모든 성과 칸에 같이 쓴다
-// 손잡이 두 개 슬라이더. 제자리 막대와 위에 뜨는 막대가 같은 모양을 쓴다
+// 겹친 손잡이는 아래 시작일·종료일 버튼으로 선택할 수 있다.
 function sliderBox(t, w) {
   const at = d => t.length > 1 ? t.indexOf(d) / (t.length - 1) * 100 : 0;
   return `<div class="slider" data-active-end="${activeRangeEnd}" role="group" aria-label="시작일과 종료일 범위 슬라이더" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
@@ -49,9 +49,9 @@ function sliderBox(t, w) {
     </div>`;
 }
 
-function handlePicker({ compact = false } = {}) {
-  return `<div class="range-handles${compact ? " compact" : ""}" role="group" aria-label="조정할 슬라이더 손잡이 선택">
-    ${[["from", "시작"], ["to", "종료"]].map(([end, label]) => `<button type="button" data-select-end="${end}" aria-pressed="${activeRangeEnd === end}" aria-label="${label}일 손잡이 선택">${label}${compact ? "" : "일 조정"}</button>`).join("")}
+function handlePicker() {
+  return `<div class="range-handles" role="group" aria-label="조정할 슬라이더 손잡이 선택">
+    ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<button type="button" data-select-end="${end}" aria-pressed="${activeRangeEnd === end}" aria-label="${label} 손잡이 선택">${label} <span data-handle-date="${end}"></span></button>`).join("")}
   </div>`;
 }
 
@@ -61,8 +61,6 @@ function rangeBox({ units = false } = {}) {
   if (!t?.length) return "";
   const w = presetWindow(t);
   const span = (Date.parse(t.at(-1)) - Date.parse(t[0])) / 86400000;
-  // 제자리 막대는 크기가 절대 바뀌지 않는다(바뀌면 아래 내용이 통째로 밀린다).
-  // 그 자리를 지나 내려가면 같은 슬라이더를 단 작은 막대를 화면 위에 따로 띄운다.
   const unitSeg = unitOn ? `<div class="seg seg-unit" role="group" aria-label="통화 기준">${[["KRW", "원"], ["USD", "$"]].map(([v, l]) => `<button type="button" data-unit="${v}" aria-pressed="${unit === v}" aria-label="${v === "KRW" ? "원화 기준" : "달러 기준"}">${l}</button>`).join("")}</div>` : "";
   return `<section class="range" aria-label="기간">
     <div class="range-top"><div class="seg seg-fill" role="group" aria-label="기간 빠르게 고르기">${PERIODS.map(([v, l]) => `<button type="button" data-period="${v}" aria-pressed="${win.preset === v}" ${v !== "all" && +v > span + 7 ? "disabled" : ""}>${l}</button>`).join("")}</div>${unitSeg}</div>
@@ -71,15 +69,15 @@ function rangeBox({ units = false } = {}) {
       <div class="range-custom-controls">
         ${sliderBox(t, w)}
         ${handlePicker()}
-        <div class="range-step-mode" role="group" aria-label="날짜 미세 조정 단위"><span>날짜 미세 조정</span>
-          ${[1, 7].map(days => `<button type="button" data-step-days="${days}" aria-pressed="${rangeStepDays === days}">${days}일씩</button>`).join("")}
-        </div>
-        <div class="range-steps" role="group" aria-label="시작일과 종료일 미세 조정">
-          ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label}</span><button type="button" data-step-end="${end}" data-step="-1" aria-label="${label} ${rangeStepDays}일 전">−${rangeStepDays}일</button><button type="button" data-step-end="${end}" data-step="1" aria-label="${label} ${rangeStepDays}일 후">+${rangeStepDays}일</button></div>`).join("")}
-        </div>
         <details class="range-fine">
-          <summary>날짜 직접 선택</summary>
+          <summary>정밀 조정 · 날짜 직접 선택</summary>
           <div class="range-fine-controls">
+            <div class="range-step-mode" role="group" aria-label="날짜 미세 조정 단위"><span>날짜 미세 조정</span>
+              ${[1, 7].map(days => `<button type="button" data-step-days="${days}" aria-pressed="${rangeStepDays === days}">${days}일씩</button>`).join("")}
+            </div>
+            <div class="range-steps" role="group" aria-label="시작일과 종료일 미세 조정">
+              ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label}</span><button type="button" data-step-end="${end}" data-step="-1" aria-label="${label} ${rangeStepDays}일 전">−${rangeStepDays}일</button><button type="button" data-step-end="${end}" data-step="1" aria-label="${label} ${rangeStepDays}일 후">+${rangeStepDays}일</button></div>`).join("")}
+            </div>
             <div class="range-inputs" role="group" aria-label="기간 날짜 직접 선택">
               ${datePicker("from", "시작일", w.from, t[0], t.at(-1))}
               ${datePicker("to", "종료일", w.to, t[0], t.at(-1))}
@@ -88,12 +86,7 @@ function rangeBox({ units = false } = {}) {
         </details>
       </div>
     </details>
-  </section>
-  <div class="range-float" aria-label="기간" role="group">
-    <p class="range-dates"><b class="fig" data-label="from">${esc(rangeDate(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(rangeDate(w.to))}</b></p>
-    ${handlePicker({ compact: true })}
-    ${sliderBox(t, w)}
-  </div>`;
+  </section>`;
 }
 
 function priceStatusBar() {
@@ -113,8 +106,6 @@ function priceStatusBar() {
 }
 
 const TOP = 64; // 위 막대 높이(56) + 여유
-let floatObs = null;
-let floatResizeHandler = null;
 // iOS 날짜 선택기/키보드가 열린 동안 하단 도크를 감춘다. 닫으면 그대로 복원한다.
 // WebKit의 native date picker는 focus() 없이도 열릴 수 있어 실제 pointer/click도 감지한다.
 addEventListener("pointerdown", e => {
@@ -137,25 +128,6 @@ addEventListener("change", e => {
 function bindRange() {
   const t = state.model.worth?.t;
   if (!t?.length) return;
-  const bar = view.querySelector(".range"), float = view.querySelector(".range-float");
-  floatObs?.disconnect();
-  floatObs = new IntersectionObserver(([e]) => {
-    const past = !e.isIntersecting && e.boundingClientRect.top < TOP && !!bar.querySelector(".range-custom")?.open;
-    if (past) fit();
-    float.classList.toggle("on", past);
-    float.inert = !past;
-  }, { rootMargin: `-${TOP}px 0px 0px 0px` });
-  floatObs.observe(bar);
-  // 뜨는 막대는 제자리 막대와 같은 가로 자리·폭에 놓는다(넓은 화면의 옆 탭 막대만큼 비켜서)
-  const fit = () => { const r = bar.getBoundingClientRect(); float.style.setProperty("--fl", `${r.left}px`); float.style.setProperty("--fw", `${r.width}px`); };
-  if (floatResizeHandler) removeEventListener("resize", floatResizeHandler);
-  floatResizeHandler = () => {
-    if (!bar.isConnected) { removeEventListener("resize", floatResizeHandler); floatResizeHandler = null; return; }
-    fit();
-  };
-  addEventListener("resize", floatResizeHandler, { passive: true });
-  float.inert = true;
-
   const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
   // 두 막대를 같은 값으로 맞춘다
   const show = (a, b) => {
@@ -171,7 +143,11 @@ function bindRange() {
     view.querySelectorAll('[data-date-value="to"]').forEach(x => { x.textContent = t[b].replaceAll("-", "."); });
     view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = rangeDate(t[a]); });
     view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = rangeDate(t[b]); });
+    view.querySelectorAll('[data-handle-date="from"]').forEach(x => { x.textContent = rangeDate(t[a]); });
+    view.querySelectorAll('[data-handle-date="to"]').forEach(x => { x.textContent = rangeDate(t[b]); });
   };
+  const current = presetWindow(t);
+  show(t.indexOf(current.from), t.indexOf(current.to));
   const selectEnd = end => {
     activeRangeEnd = end;
     view.querySelectorAll(".slider").forEach(box => { box.dataset.activeEnd = end; });
@@ -508,7 +484,6 @@ function renderGroup() {
     : accountPanel(selectedView(), null, { trendKey: keys, now: nowAll, live: mergedView(live), context: keys.map(accountShort).join(" · ") });
   trends = [];
   view.innerHTML = `
-    ${fam ? `<aside class="family-banner"><b>공유용 표시 모드</b><span>주 계좌·비트코인만 화면에 표시합니다. 별도의 데이터 접근 권한을 제공하는 공유 링크는 아닙니다.</span><a href="./?view=all">개인 보기 전환</a></aside>` : ""}
     ${priceStatusBar()}
     <div class="account-filter" role="group" aria-label="합계와 추이에 포함할 계좌">
       <span class="account-filter-title">포함할 계좌</span>

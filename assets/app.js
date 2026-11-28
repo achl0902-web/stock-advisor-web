@@ -31,16 +31,22 @@ const fail = e => { view.innerHTML = note(e?.message || String(e)); };
 /* ---------- 화면 이동 ---------- */
 const scrolls = new Map(); // 목록에서 상세로 갔다 돌아오면 보던 자리로
 let lastPath = null;
-// 가족 보기(nav.js가 정한다): 자산의 계좌 화면과 연결 설정만
+// 가족 보기(nav.js가 정한다): 자산 화면만. 기록·설정으로 이동할 수 없게 한다.
 const FAMILY = !!window.saFamily;
-if (FAMILY) { const b = document.querySelector(".brand"); b.textContent = "우리 자산"; b.href = "#/assets"; document.title = "우리 자산"; }
+if (FAMILY) {
+  const b = document.querySelector(".brand");
+  b.textContent = "우리 자산";
+  b.href = "#/assets";
+  document.title = "우리 자산";
+  document.getElementById("settings-link").remove();
+}
 
 function route({ keep = false } = {}) {
   let path = currentPath();
   if (path === "") { location.replace("#/" + (FAMILY ? "assets" : "today")); return; }
   // 없어진 DC·코인 상세 주소는 단일 통합 자산 화면으로 보낸다.
   if (["assets/pension", "assets/crypto", "assets/long"].includes(path)) { history.replaceState(null, "", "#/assets"); path = "assets"; }
-  if (FAMILY && path !== "settings" && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
+  if (FAMILY && path !== "assets") { history.replaceState(null, "", "#/assets"); path = "assets"; }
   // 자산만 보고 들어온 경우 판단 기록은 읽지 않았다. 기록을 열 때 처음 한 번만 전체 모델로 바꾼다.
   if (state.model?.light && path !== "settings" && !ASSET_ROUTES.has(path)) {
     state.model = null;
@@ -90,7 +96,6 @@ function renderSetup(message) {
       ${sealChars(["판", "단", "일", "지"], "up", "판단 일지")}
       <h1>저장소 연결</h1>
       <p class="lede">이 페이지에는 데이터가 없습니다. 비공개 <b>stock-advisor</b> 저장소를 이 기기에서만 읽어 와 보여 줍니다. 토큰은 이 브라우저에만 저장되고 GitHub 말고는 어디로도 보내지 않습니다.</p>
-      ${FAMILY ? note("공유 보기 주소는 데이터 열람 권한을 주지 않습니다. 다른 기기에는 별도 읽기 권한이 필요하며, 본인 토큰을 타인에게 전달하지 마세요.", "soft") : ""}
       ${message ? note(message) : ""}
       <form id="setup-form" autocomplete="off">
         <label>저장소<input name="repo" value="${esc(cur ? `${cur.owner}/${cur.repo}` : DEFAULT_REPO)}" spellcheck="false" autocapitalize="off"></label>
@@ -138,11 +143,16 @@ function setSync(text, dot = "") {
 }
 
 let booting = null;
+function shareUnavailable() {
+  // 비공개 저장소를 읽기 위한 토큰 입력을 공유 방문자에게 요구하지 않는다.
+  setSync("공유 데이터 없음", "off");
+  view.innerHTML = `<section class="setup"><h1>자산을 표시할 수 없습니다</h1><p class="lede">공유 전용 데이터가 아직 준비되지 않았습니다. 개인용 GitHub 토큰을 입력하거나 다른 사람에게 전달하지 마세요.</p></section>`;
+}
 async function boot() {
   if (booting) return booting;
   const cfg = settings.load();
   document.body.classList.toggle("no-token", !cfg?.token);
-  if (!cfg?.token) { setSync("연결 안 됨", "off"); renderSetup(); return; }
+  if (!cfg?.token) { if (FAMILY) shareUnavailable(); else { setSync("연결 안 됨", "off"); renderSetup(); } return; }
   state.repo = new Repo(cfg);
   const first = !state.model;
   if (first) view.innerHTML = `<div class="loading">${sealChars(["읽", "는", "중", "…"], "flat", "불러오는 중")}<p class="hint" id="progress">저장소를 읽는 중…</p></div>`;
@@ -170,7 +180,9 @@ async function boot() {
       if (first || lastPath !== "settings") route({ keep: !first });
     } catch (e) {
       setSync("연결 실패", "off");
-      if (e instanceof ApiError && [401, 403, 404].includes(e.status)) renderSetup(e.message);
+      if (e instanceof ApiError && [401, 403, 404].includes(e.status)) {
+        if (FAMILY) shareUnavailable(); else renderSetup(e.message);
+      }
       else {
         view.innerHTML = `${note(e?.message || String(e))}<button class="btn" type="button" id="retry">다시 시도</button>`;
         document.getElementById("retry").addEventListener("click", boot);
@@ -182,10 +194,10 @@ async function boot() {
 
 /* ---------- 새 버전 확인 ---------- */
 
-window.addEventListener("hashchange", () => state.model || currentPath() === "settings" ? route() : boot());
+window.addEventListener("hashchange", () => state.model || (!FAMILY && currentPath() === "settings") ? route() : boot());
 document.getElementById("refresh").innerHTML = icon("refresh");
 document.getElementById("refresh").addEventListener("click", boot);
-document.getElementById("settings-link").innerHTML = icon("gear");
+if (!FAMILY) document.getElementById("settings-link").innerHTML = icon("gear");
 document.addEventListener("visibilitychange", () => {
   // 오래 켜 두었다 다시 열면 새 커밋을 확인
   if (document.visibilityState === "visible" && state.model && Date.now() - state.loadedAt > 10 * 60 * 1000) boot();

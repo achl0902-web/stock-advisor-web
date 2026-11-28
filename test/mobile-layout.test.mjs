@@ -22,13 +22,14 @@ test("모바일 차트 전체 화면 단추와 가로 모드 크기 보정 스�
   assert.match(html, /orientation:\s*landscape/);
 });
 
-test("모바일 하단 내비게이션은 그래프 위의 떠 있는 알약이 아닌 도크이며 전역 resize를 덮어쓰지 않는다", () => {
+test("모바일 하단 내비게이션은 도크이며 중복 고정 슬라이더와 전역 resize 덮어쓰기가 없다", () => {
   const css = readFileSync(new URL("../assets/tokens.css", import.meta.url), "utf8");
   const assets = readFileSync(new URL("../assets/view-assets.js", import.meta.url), "utf8");
   assert.match(css, /@media \(max-width: 1023px\)[\s\S]*?\.tabbar\s*\{[^}]*bottom:\s*0;[^}]*width:\s*100%/);
   assert.match(css, /\.tabbar a\s*\{ border-radius: 12px; \}/);
   assert.doesNotMatch(assets, /\bonresize\s*=/);
-  assert.match(assets, /addEventListener\("resize", floatResizeHandler/);
+  assert.doesNotMatch(assets, /range-float|floatResizeHandler|floatObs/);
+  assert.doesNotMatch(css, /\.range-float\s*\{/);
 });
 
 test("320·375·390px 자산 조작부는 한 줄 강제 없이 배치하고 주요 터치 대상으로 44px을 확보한다", () => {

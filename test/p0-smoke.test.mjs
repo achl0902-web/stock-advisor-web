@@ -49,12 +49,13 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     from.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     assert.equal(root.querySelector('[data-label="from"]').textContent, "26.11.26");
     assert.equal(root.querySelector('.range .slider input[data-end="from"]').getAttribute("aria-valuetext"), "2026년 11월 26일", "스크린리더에 축약 표기가 아닌 연월일 전달");
-    assert.equal(root.querySelector('.range-steps').closest('.range-fine'), null, "7일씩 조정 버튼은 정밀 날짜를 펼치지 않아도 접근할 수 있다");
+    assert.ok(root.querySelector('.range-steps').closest('.range-fine'), "미세 조정 버튼은 보조 메뉴로 이동한다");
     assert.equal(root.querySelectorAll('.range-step-pair button').length, 4);
-    assert.equal(root.querySelectorAll('[data-select-end]').length, 4, "기본·고정 슬라이더 모두 손잡이를 선택할 수 있다");
+    assert.equal(root.querySelectorAll('[data-select-end]').length, 2, "한 개의 슬라이더에서 시작일·종료일을 선택한다");
+    assert.equal(root.querySelector('.range-float'), null, "중복 고정 슬라이더를 렌더링하지 않는다");
     root.querySelector('[data-select-end="from"]').click();
     assert.equal(root.querySelector('.range .slider').dataset.activeEnd, "from");
-    assert.equal(root.querySelector('.range-float .slider').dataset.activeEnd, "from");
+    assert.equal(root.querySelector('[data-handle-date="from"]').textContent, "26.11.26");
     root.querySelector('[data-step-days="1"]').click();
     assert.equal(root.querySelector('[data-step-end="to"][data-step="-1"]').textContent, "−1일");
     assert.ok(root.querySelector('.account-selection'), "함께 선택한 계좌를 성과 카드 제목 아래에서 확인할 수 있다");
@@ -91,6 +92,8 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     dom.window.saFamily = true;
     renderAccounts();
     assert.deepEqual([...root.querySelectorAll("[data-compare-key]")].map(x => x.dataset.compareKey), ["main", "crypto"]);
+    assert.equal(root.querySelector('a[href*="view=all"]'), null, "공유 화면에는 개인 모드 전환 링크가 없다");
+    assert.doesNotMatch(root.textContent, /공유용 표시 모드|개인 보기 전환|바이오 계좌|퇴직연금 DC/);
     assert.equal(root.querySelector("[data-comp]"), null, "가족 보기에도 중복 구성을 추가하지 않는다");
     assert.equal(root.querySelector(".accounts > .account").dataset.key, "all");
     assert.equal(root.querySelector('[data-compare-key="crypto"]').getAttribute("aria-pressed"), "true");
