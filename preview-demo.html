@@ -17,7 +17,7 @@ const accounts = {
   pension:{label:"퇴직연금 DC",kind:"pension",holdings:holdings("DC",800,60000),cash_krw:13000000,risk_asset_max_pct:70},
   crypto:{label:"비트코인",kind:"crypto",holdings:holdings("BTC",.25,125000000),cash_krw:0},
 };
-state.model={accounts,quotes:{QLD:{price:125},BIO:{price:150000},DC:{price:60000},BTC:{price:125000000},},names:{QLD:"QLD",BIO:"바이오",DC:"퇴직연금",BTC:"비트코인"},fx:1350,boardAt:now,boardErrors:[],
+state.model={accounts,quotes:{QLD:{price:125,verified:true},BIO:{price:150000,verified:true},DC:{price:60000,verified:true},BTC:{price:125000000,verified:true},},names:{QLD:"QLD",BIO:"바이오",DC:"퇴직연금",BTC:"비트코인"},fx:1350,boardAt:now,boardErrors:[],
   worth:{t:days,v:{main,bio,pension,crypto},f:Object.fromEntries(["main","bio","pension","crypto"].map(k=>[k,days.map(()=>0)])),fx:days.map(()=>1350),trades:{},events:{}},
   alerts:{items:[{id:"a1",code:"QLD",name:"QLD",account:"주 계좌",alerts:[{id:"p1",price:130,op:">=",msg:"매도 검토"}]},{id:"a2",code:"BIO",name:"바이오",account:"바이오 계좌",alerts:[{id:"p2",price:145000,op:"<=",msg:"관심 매수 가격"}]}]},alertState:{fired:{},quotes:{}},
   openOrders:[{code:"QLD",name:"QLD",side:"buy",market:"US",account:"주 계좌",limit:112.5,qty:10,expires:days.at(-1)}],
