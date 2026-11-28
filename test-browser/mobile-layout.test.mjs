@@ -6,7 +6,7 @@ import { resolve, sep, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const root = fileURLToPath(new URL("../", import.meta.url));
+const root = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const mime = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -91,8 +91,9 @@ test("자산 페이지는 실제 모바일 렌더링에서 날짜·카드·도�
       });
       const page = await context.newPage();
       try {
-        await page.goto(server.url, { waitUntil: "networkidle" });
-        await page.locator(".range-custom[open]").waitFor();
+        const response = await page.goto(server.url, { waitUntil: "networkidle" });
+        assert.equal(response?.status(), 200, "가상 데이터 미리보기 HTML 응답 오류");
+        await page.locator(".range-custom[open]").waitFor({ timeout: 10_000 });
         await page.locator(".range-fine > summary").click();
         const m = await inspectLayout(page);
         const problems = [];
@@ -144,8 +145,9 @@ test("실제 DOM에서 계좌·기간 조작은 성과에 반영되고 슬라이
   try {
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-    await page.goto(server.url, { waitUntil: "networkidle" });
-    await page.locator(".range-custom[open]").waitFor();
+    const response = await page.goto(server.url, { waitUntil: "networkidle" });
+    assert.equal(response?.status(), 200, "가상 데이터 미리보기 HTML 응답 오류");
+    await page.locator(".range-custom[open]").waitFor({ timeout: 10_000 });
     const before = await page.locator(".account").first().innerText();
     await page.locator('[data-compare-key="pension"]').click();
     assert.equal(await page.locator('[data-compare-key="pension"]').getAttribute("aria-pressed"), "true");
