@@ -165,6 +165,10 @@ function bindRange() {
       pinned = shouldPin;
     }
     if (pinned) {
+      // 모바일의 폰트·안전 영역·확대율에 따라 상단 헤더 높이가 달라질 수 있다.
+      // 고정값(56px) 대신 렌더링된 헤더 하단을 기준으로 붙인다.
+      const headerBottom = document.querySelector(".top")?.getBoundingClientRect().bottom ?? 56;
+      floating.style.top = `${Math.max(0, headerBottom)}px`;
       floating.style.left = `${r.left}px`;
       floating.style.width = `${r.width}px`;
     }
