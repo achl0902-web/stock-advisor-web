@@ -19,10 +19,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - name: 실제 레이아웃 브라우저 검사 준비
-        run: npx playwright install --with-deps chromium
+      - name: 실제 레이아웃 브라우저 검사 준비 (Chromium·WebKit)
+        run: npx playwright install --with-deps chromium webkit
       - name: 모바일 반응형·계좌·기간 브라우저 회귀
         run: npm run check:browser
+      - name: iPhone Safari 유사 WebKit 모바일 회귀
+        run: PLAYWRIGHT_BROWSER=webkit npm run check:browser
       - name: 실패한 모바일 화면 캡처 보관
         if: failure()
         uses: actions/upload-artifact@v4

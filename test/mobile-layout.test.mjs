@@ -58,8 +58,10 @@ test("P2 모바일의 차트 정보와 조작은 분리하고, 320px에서 수�
   assert.match(css, /\.chip\s*\{[^}]*height:\s*44px/);
   assert.match(css, /@media \(max-width: 360px\)\s*\{[^\n]*\.top-tools \.sync\s*\{[^}]*display:\s*none/);
   assert.match(css, /@media \(max-width: 390px\)\s*\{[^}]*\.tiles dd\s*\{[^}]*white-space:\s*normal/);
-  assert.match(assets, /aria-valuetext="\$\{esc\(dayText\(w.from\)\)\}"/);
-  assert.match(assets, /setAttribute\("aria-valuetext", dayText\(t\[a\]\)\)/);
+  assert.match(assets, /aria-valuetext="\$\{esc\(spokenDate\(w.from\)\)\}"/);
+  assert.match(assets, /setAttribute\("aria-valuetext", spokenDate\(t\[a\]\)\)/);
+  assert.match(css, /\.slider input\s*\{[^}]*touch-action:\s*none/);
+  assert.doesNotMatch(assets, /scrollTo\(0, dragY\)/, "슬라이더 제스처가 페이지 전체 스크롤을 강제 복구하지 않는다");
   assert.match(chart, /data-line-step="-1"/);
   assert.match(chart, /aria-live="polite"/);
 });

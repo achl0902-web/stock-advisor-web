@@ -79,7 +79,7 @@ export function line(points, { height = 240, fmt = String, marks = [], label = "
   </div>
   <div class="ln-inspect" role="group" aria-label="차트 기록 날짜 탐색">
     <button type="button" data-line-step="-1" aria-label="이전 기록 날짜">이전</button>
-    <output class="ln-selected" aria-live="polite" aria-atomic="true"><span>${esc(dayText(latest.t))}</span><b class="fig">${esc(fmt(latest.v))}</b>${latest.p != null ? `<small class="fig">원금 ${esc(fmt(latest.p))}</small>` : ""}</output>
+    <output class="ln-selected" aria-live="polite" aria-atomic="true"><span aria-label="선택 날짜 ${esc(latest.t)}">${esc(dayText(latest.t))}</span><span class="sr">평가액</span><b class="fig">${esc(fmt(latest.v))}</b>${latest.p != null ? `<small class="fig">투자원금 ${esc(fmt(latest.p))}</small>` : ""}</output>
     <button type="button" data-line-step="1" aria-label="다음 기록 날짜" disabled>다음</button>
   </div>`;
 }
@@ -124,10 +124,11 @@ export function bindLines(root) {
       tip.style.left = `${Math.min(82, Math.max(18, left))}%`;
       if (output) {
         output.replaceChildren();
-        const date = document.createElement("span"); date.textContent = dayText(p.t);
+        const date = document.createElement("span"); date.textContent = dayText(p.t); date.setAttribute("aria-label", `선택 날짜 ${p.t}`);
         const value = document.createElement("b"); value.className = "fig"; value.textContent = c.fmt(p.v);
-        output.append(date, value);
-        if (p.p != null) { const principal = document.createElement("small"); principal.className = "fig"; principal.textContent = `원금 ${c.fmt(p.p)}`; output.append(principal); }
+        const valueLabel = document.createElement("span"); valueLabel.className = "sr"; valueLabel.textContent = "평가액";
+        output.append(date, valueLabel, value);
+        if (p.p != null) { const principal = document.createElement("small"); principal.className = "fig"; principal.textContent = `투자원금 ${c.fmt(p.p)}`; output.append(principal); }
       }
       if (prev) prev.disabled = idx === valid[0];
       if (next) next.disabled = idx === valid.at(-1);
