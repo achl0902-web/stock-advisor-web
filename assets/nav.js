@@ -1,13 +1,13 @@
 // 오늘·자산·시장·기록 공용 최상위 메뉴. 기존 링크는 유지하면서 첫 주소는 오늘로 보낸다.
 // 판단 일지 안에서는 해시만 바꾸고(새로 읽지 않음), 시세판에서는 판단 일지로 넘어간다.
-// 가족 보기: ?view=family로 한 번 들어오면 이 기기에서 계속(주 계좌·코인 자산과 시세만). ?view=all로 되돌린다.
+// 가족 보기: 한 번 설정하면 이 기기의 표시 모드로 유지한다.
+// URL의 view=all만으로 이 상태를 해제하지 않는다. (권한 분리 기능은 아님.)
 (function () {
   try {
     var v = new URLSearchParams(location.search).get("view");
     if (v === "family") localStorage.setItem("sa:view", "family");
-    if (v === "all") localStorage.removeItem("sa:view");
     window.saFamily = localStorage.getItem("sa:view") === "family";
-  } catch (e) { window.saFamily = false; }
+  } catch (e) { window.saFamily = new URLSearchParams(location.search).get("view") === "family"; }
   if (window.saFamily) document.documentElement.classList.add("family");
 })();
 (function () {

@@ -56,6 +56,8 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .icon-btn:active { background: var(--raised); }
 @media (hover: hover) { .icon-btn:hover { background: var(--raised); color: var(--ink); } }
 .no-token .tabbar, .no-token #refresh, .no-token #settings-link { display: none; }
+/* 공유 모드에서 스크립트 초기화 전에도 개인 연결 설정 단추를 노출하지 않는다. */
+html.family #settings-link { display: none; }
 
 /* ---------- 도장·판단 표시·확신도 ---------- */
 .seal {
@@ -126,10 +128,6 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .today-page .strategy .hint { margin-top: 8px; }
 .log-intro h1 { font-size: 23px; }
 .log-intro p { margin-top: 3px; }
-.family-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--raised); font-size: 13px; }
-.family-banner b { color: var(--accent); }
-.family-banner > span { color: var(--sub); }
-.family-banner a { display: inline-flex; align-items: center; min-height: 44px; margin-left: auto; color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- 자산: 성과·보유종목에 반영하는 계좌 선택 (유일한 계좌 조작 영역) ---------- */
 .account-filter { min-width: 0; padding: 10px 12px; border-radius: 14px; background: var(--panel); }
@@ -436,19 +434,10 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 .ln-key i { display: inline-block; width: 14px; height: 0; margin-right: 6px; vertical-align: 3px; border-top: 2px solid var(--accent); }
 .ln-key i.k-p { border-top: 2px dashed var(--sub); }
 
-/* 기간: 버튼과 손잡이 두 개 슬라이더(QLD 백테스터처럼). 위쪽 하나가 아래 모든 성과 칸에 같이 쓰인다 */
+/* 기간: 한 개의 두 손잡이 슬라이더가 아래 성과 칸 모두를 제어한다. */
 .range { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 10px; padding: 12px 14px 10px; border-radius: var(--r-panel); background: var(--panel); }
 .account-filter + .range { margin-bottom: -7px; border-radius: var(--r-panel) var(--r-panel) 11px 11px; }
 .range + .accounts > .account { border-radius: 11px 11px var(--r-panel) var(--r-panel); }
-/* 제자리 막대를 지나 내려가면 화면 위에 뜨는 작은 막대. 문서 흐름 밖(fixed)이라 나타나고 사라져도 아래 내용이 밀리지 않는다 */
-.range-float { position: fixed; z-index: 15; top: calc(56px + env(safe-area-inset-top, 0px)); left: var(--fl, var(--gut)); width: var(--fw, calc(100% - 2 * var(--gut))); transform: translateY(-8px); display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 6px 14px; border-radius: var(--r-panel); background: color-mix(in srgb, var(--panel) 92%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .9); opacity: 0; visibility: hidden; transition: opacity .15s, transform .15s, visibility 0s .15s; }
-.range-float.on { opacity: 1; visibility: visible; transform: none; transition: opacity .15s, transform .15s; }
-.range-float .range-dates { gap: 4px; }
-@media (max-width: 480px) {
-  .range-float { grid-template-columns: minmax(0, 1fr); gap: 2px; padding-block: 6px; }
-  .range-float .range-dates { justify-content: space-between; }
-}
-@media (prefers-reduced-motion: reduce) { .range-float, .range-float.on { transition: none; } }
 /* 다시 그릴 때 스크롤 보정은 화면 코드가 직접 한다(브라우저 보정과 겹치지 않게) */
 html { overflow-anchor: none; scroll-padding-top: calc(112px + env(safe-area-inset-top, 0px)); scroll-padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px) + 24px); }
 .range .seg { background: var(--raised); }
@@ -464,7 +453,8 @@ html { overflow-anchor: none; scroll-padding-top: calc(112px + env(safe-area-ins
 .range-summary .range-dates b { font-size: 14px; }
 .range-custom-controls { display: grid; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
 .range-handles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; }
-.range-handles button { min-width: 0; min-height: 44px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--sub); font-size: 14px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+.range-handles button { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; min-height: 44px; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--sub); font-size: 13px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+.range-handles [data-handle-date] { color: var(--ink); font-variant-numeric: tabular-nums; }
 .range-handles button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent); border-color: var(--accent); }
 .range-handles button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .range-step-mode { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
@@ -494,22 +484,24 @@ html { overflow-anchor: none; scroll-padding-top: calc(112px + env(safe-area-ins
 .date-select input { position: absolute; inset: 0; width: 100%; min-width: 0; max-width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; color-scheme: dark; }
 .date-select:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (max-width: 360px) { .range-inputs { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
-.slider { position: relative; height: 44px; min-width: 0; touch-action: pan-y; }
-.slider-track { position: absolute; left: 22px; right: 22px; top: 20px; height: 4px; border-radius: 4px; background: var(--raised); }
+.slider { position: relative; height: 48px; min-width: 0; touch-action: pan-y; }
+.slider-track { position: absolute; left: 22px; right: 22px; top: 22px; height: 4px; border-radius: 4px; background: var(--line-strong); }
 .slider-track i { position: absolute; top: 0; bottom: 0; left: var(--a); right: calc(100% - var(--b)); border-radius: 4px; background: var(--accent); }
-.slider input { position: absolute; inset: 0; width: 100%; height: 44px; margin: 0; background: none; pointer-events: none; touch-action: none; -webkit-appearance: none; appearance: none; }
+.slider input { position: absolute; inset: 2px 0; width: 100%; height: 44px; margin: 0; background: none; pointer-events: none; touch-action: none; -webkit-appearance: none; appearance: none; }
 .slider[data-active-end="from"] input[data-end="from"], .slider[data-active-end="to"] input[data-end="to"] { z-index: 1; }
 .slider input::-webkit-slider-runnable-track { background: none; height: 44px; }
-.slider input::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 44px; height: 44px; border: 8px solid transparent; border-radius: 50%; background: var(--ink) padding-box; box-shadow: inset 0 0 0 6px var(--accent); cursor: grab; }
-.slider input::-moz-range-thumb { pointer-events: auto; width: 44px; height: 44px; border: 8px solid transparent; border-radius: 50%; background: var(--ink) padding-box; box-shadow: inset 0 0 0 6px var(--accent); cursor: grab; }
+.slider input::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; width: 44px; height: 44px; border: 13px solid transparent; border-radius: 50%; background: var(--accent) padding-box; cursor: grab; }
+.slider input::-moz-range-thumb { pointer-events: auto; width: 44px; height: 44px; border: 13px solid transparent; border-radius: 50%; background: var(--accent) padding-box; cursor: grab; }
+.slider[data-active-end="from"] input[data-end="from"]::-webkit-slider-thumb,
+.slider[data-active-end="to"] input[data-end="to"]::-webkit-slider-thumb { box-shadow: inset 0 0 0 2px var(--ink); }
+.slider[data-active-end="from"] input[data-end="from"]::-moz-range-thumb,
+.slider[data-active-end="to"] input[data-end="to"]::-moz-range-thumb { box-shadow: inset 0 0 0 2px var(--ink); }
 .slider input::-moz-range-track { background: none; }
 .slider input:focus-visible { outline: none; }
 .slider input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--ink); outline-offset: 3px; }
 .slider input:focus-visible::-moz-range-thumb { outline: 2px solid var(--ink); outline-offset: 3px; }
-.range-float .range-handles { gap: 6px; }
-.range-float .range-handles button { min-height: 44px; padding: 2px 8px; font-size: 13px; }
 /* 날짜 선택기/가상 키보드가 열린 동안 하단 고정 메뉴가 입력 위를 덮지 않게 한다. */
-.date-editing .tabbar, .date-editing .range-float { visibility: hidden !important; pointer-events: none !important; }
+.date-editing .tabbar { visibility: hidden !important; pointer-events: none !important; }
 .range-dates { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--dim); }
 .range-dates b { font-size: 15px; font-weight: 600; color: var(--ink); }
 

@@ -229,8 +229,10 @@ test("모바일 손잡이가 겹쳐도 선택·1일 조정·트랙 탭이 가능
     await page.locator(".range-custom[open]").waitFor();
     const from = page.locator('.range .slider input[data-end="from"]');
     const to = page.locator('.range .slider input[data-end="to"]');
-    await page.locator('[data-select-end="from"]').first().click();
-    assert.equal(await page.locator('.range-float .slider').getAttribute("data-active-end"), "from");
+    assert.equal(await page.locator('.range .slider').count(), 1, "한 개의 슬라이더만 표시한다");
+    await page.locator('[data-select-end="from"]').click();
+    assert.equal(await page.locator('.range .slider').getAttribute("data-active-end"), "from");
+    await page.locator(".range-fine > summary").click();
     await page.locator('[data-step-days="1"]').click();
     assert.equal(await page.locator('[data-step-end="from"][data-step="-1"]').innerText(), "−1일");
     const previousFrom = await from.getAttribute("aria-valuetext");
@@ -238,23 +240,22 @@ test("모바일 손잡이가 겹쳐도 선택·1일 조정·트랙 탭이 가능
     assert.notEqual(await from.getAttribute("aria-valuetext"), previousFrom, "1일씩 이전 날짜로 조정되지 않음");
 
     // 날짜 직접 입력으로 손잡이 둘을 같은 날짜에 놓은 뒤 각각을 다시 이동한다.
-    await page.locator(".range-fine > summary").click();
     const last = await page.locator('[data-date="to"]').inputValue();
     const lastSpoken = await to.getAttribute("aria-valuetext");
     await page.locator('[data-date="from"]').fill(last);
     await page.locator('[data-date="from"]').dispatchEvent("change");
     assert.equal(await from.getAttribute("aria-valuetext"), lastSpoken);
     assert.equal(await to.getAttribute("aria-valuetext"), lastSpoken);
-    await page.locator('[data-select-end="from"]').first().click();
+    await page.locator('[data-select-end="from"]').click();
     await from.focus();
     await page.keyboard.press("ArrowLeft");
     assert.notEqual(await from.getAttribute("aria-valuetext"), lastSpoken, "겹친 시작일을 따로 움직일 수 없음");
     assert.equal(await to.getAttribute("aria-valuetext"), lastSpoken, "시작일 조정 시 종료일이 바뀜");
-    await page.locator('[data-select-end="to"]').first().click();
+    await page.locator('[data-select-end="to"]').click();
     assert.equal(await page.locator('.range .slider').getAttribute("data-active-end"), "to");
 
     // 막대 빈 곳에서 시작일을 터치하여 탐색한다.
-    await page.locator('[data-select-end="from"]').first().click();
+    await page.locator('[data-select-end="from"]').click();
     const track = await page.locator('.range .slider-track').boundingBox();
     assert.ok(track?.width);
     await page.mouse.click(track.x + track.width * 0.25, track.y + track.height / 2);
@@ -269,6 +270,29 @@ test("모바일 손잡이가 겹쳐도 선택·1일 조정·트랙 탭이 가능
     await page.locator('.account-filter-title').dispatchEvent("pointerdown", { pointerType: "touch" });
     await page.waitForFunction(() => !document.documentElement.classList.contains("date-editing"));
     assert.notEqual(await page.locator(".tabbar").evaluate(el => getComputedStyle(el).visibility), "hidden");
+  } finally {
+    await browser?.close();
+    await server.close();
+  }
+});
+
+test("공유 링크는 개인 기록·설정과 토큰 입력을 노출하지 않고 URL 전환을 거부한다", { timeout: 30_000 }, async () => {
+  const server = await serveDemo();
+  let browser;
+  try {
+    browser = await launchBrowser();
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const base = new URL(server.url);
+    await page.goto(`${base.origin}/log.html?view=family#/settings`, { waitUntil: "networkidle" });
+    await page.getByText("공유 전용 데이터가 아직 준비되지 않았습니다.", { exact: false }).waitFor();
+    assert.equal(await page.locator('#settings-link').count(), 0);
+    assert.equal(await page.locator('#setup-form').count(), 0);
+    assert.equal(await page.locator('#tabbar a[data-tab="log"]').count(), 0);
+    await page.goto(`${base.origin}/log.html?view=all#/log`, { waitUntil: "networkidle" });
+    assert.equal(await page.evaluate(() => window.saFamily), true, "view=all로 공유 모드를 해제하면 안 된다");
+    assert.equal(await page.locator('#setup-form').count(), 0);
+    assert.equal(await page.locator('#settings-link').count(), 0);
+    assert.equal(await page.locator('#view a[href*="view=all"]').count(), 0);
   } finally {
     await browser?.close();
     await server.close();
