@@ -18,7 +18,8 @@ test("복구한 시세판이 가짜 시세 데이터로 종목·차트·관심�
     spark: [98, 99, 100], accounts: [], lines: [], orders: [] };
   const bio = { ...quote, yf: "BIO", sym: "BIO", code: "BIO", name: "바이오", doc: "BIO", market: "KR", last: 120, prev: 118 };
   const snapshot = { asof: new Date().toISOString(), macro: [], watch: [quote, bio],
-    heat_us: [], heat_kr: [], crypto: null };
+    heat_us: [], heat_kr: [], crypto: null,
+    stale_quotes: [{ sym: "QLD", date: "2026-11-25", expected: "2026-11-27" }] };
   const data = { snapshot, daily: { sym: "QLD", d: {
     t: ["2026-11-25", "2026-11-26", "2026-11-27"], o: [98, 99, 100],
     h: [99, 100, 102], l: [97, 98, 99], c: [99, 100, 101], v: [10, 20, 30] } },
@@ -61,6 +62,8 @@ test("복구한 시세판이 가짜 시세 데이터로 종목·차트·관심�
     assert.ok(body, "render errors: " + JSON.stringify(errors));
     assert.match(body, /관심종목/);
     assert.match(body, /QLD/);
+    assert.match(body, /1종목 지연/, "최근 수집 스냅숏도 오래된 개별 종가가 있으면 완료로 표시하지 않는다");
+    assert.match(body, /QLD 2026-11-25 \(필요 2026-11-27\)/);
     assert.ok(window.document.querySelector(".chart-host"));
     assert.equal(window.document.querySelectorAll(".quick-symbols .quick-pick").length, 2,
       "모바일에서 차트보다 위에서 종목을 선택할 수 있음");

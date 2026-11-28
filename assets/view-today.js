@@ -63,7 +63,7 @@ export function renderToday() {
   const status = quoteStatus(state.model), stamp = status.asof ? `${dayOnly(status.asof)} 수집` : "시세 수집 이력 없음";
   view.innerHTML = `<div class="today-page">
     <div class="today-heading"><h1>오늘</h1><p>자산을 확인하고, 대응이 필요한 일부터 살펴보세요.</p></div>
-    <p class="today-fresh ${status.level === "error" || status.level === "old" ? "tone-warn" : ""}" role="status">${icon(status.level === "error" ? "warn" : "refresh")} ${esc(stamp)}${status.level === "old" ? " · 최신 시세가 아닐 수 있습니다" : ""}${status.errors.length ? ` · 일부 수집 실패 ${status.errors.length}건` : ""}</p>
+    <p class="today-fresh ${status.level === "error" || status.level === "old" ? "tone-warn" : ""}" role="status">${icon(status.level === "error" ? "warn" : "refresh")} ${esc(stamp)}${status.level === "old" ? " · 최신 시세가 아닐 수 있습니다" : ""}${status.stale.length ? ` · ${status.stale.length}종목 시세 지연(${esc(status.stale.map(x => x.sym).join("·"))})` : ""}${status.errors.filter(x => !status.stale.some(s => s.sym === x)).length ? ` · 일부 수집 실패 ${status.errors.filter(x => !status.stale.some(s => s.sym === x)).length}건` : ""}</p>
     ${wealthSummary()}
     ${actionSummary()}
     ${strategyPanel()}
