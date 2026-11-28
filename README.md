@@ -13,7 +13,7 @@
 | 탭 | 내용 | 읽는 파일 |
 | --- | --- | --- |
 | 오늘 (`log.html#/today`, 기본 화면) | 운용 계좌 요약, 시세 수집 시각·실패, 확인이 필요한 관심가, 미체결 주문, 다가오는 알림 일정, QLD 챔피언 전략, 가장 최근 판단, 가까운 주요 시장 일정. 첫 진입에는 최근 판단 1건만 불러오고 목록은 기록 탭에 들어갈 때 읽음 | `config/accounts.json`, `config/open_orders.json`, `config/price_alerts.json`, `reports/events.json`, `board-data` 브랜치, 최근 판단 1건, back-testing `qld/data/status.json` |
-| 자산 (`#/assets`) | 주 계좌·바이오를 기본 선택하는 **단일 통합 화면**. DC·비트코인도 **상단 계좌 토글 하나로** 추가·제외하며 1개 선택 시 해당 계좌 상세, 여러 개 선택 시 합계를 표시. 선택 계좌의 **성과·수익률·크게 확장된 평가액 추이 다음에 보유종목 도넛과 목록**을 표시. 중복 계좌 구성 도넛·선택 목록은 제거. 기간 슬라이더는 기본으로 펼쳐두고 **±7일 조정 버튼도 항상 노출**하며, 정확한 날짜 직접 입력만 보조 옵션. 시작·종료일은 연도까지 표시하며 수익률 기초일을 설명. 차트의 **이전/다음 기록 버튼**으로 날짜별 평가액·원금을 직접 살펴볼 수 있고 키보드도 지원. 상세 손익 분해는 펼쳐서 확인하며 원/$ 표시 공통 적용. 이전 DC·코인 상세 주소는 통합 화면으로 이동 | `config/accounts.json`, `board-data` 브랜치 `networth--history.json` |
+| 자산 (`#/assets`) | 주 계좌·바이오를 기본 선택하는 **단일 통합 화면**. DC·비트코인도 **상단 계좌 토글 하나로** 추가·제외하며 1개 선택 시 해당 계좌 상세, 여러 개 선택 시 합계를 표시. 선택 계좌의 **성과·수익률·크게 확장된 평가액 추이 다음에 보유종목 도넛과 목록**을 표시. 중복 계좌 구성 도넛·선택 목록은 제거. 기간 슬라이더는 기본으로 펼쳐두고 **시작/종료 손잡이 직접 선택, 1일/7일 미세 조정**을 제공하며, 정확한 날짜 직접 입력은 보조 옵션. 시작·종료일은 연도까지 표시하며 수익률 기초일을 설명. 차트의 **이전/다음 기록 버튼**으로 날짜별 평가액·원금을 직접 살펴볼 수 있고 키보드도 지원. 상세 손익 분해는 펼쳐서 확인하며 원/$ 표시 공통 적용. 이전 DC·코인 상세 주소는 통합 화면으로 이동 | `config/accounts.json`, `board-data` 브랜치 `networth--history.json` |
 | 시장 (`index.html#market`) | Funnest Charts 트레이딩 차트(지표·그리기·평단/관심가), 지수·환율·비트코인 띠, 관심종목, 가격선, 나스닥100·코스피 히트맵. 모바일에서 **차트 위 관심종목 빠른 전환**과 차트 아래 **과거·다음·축소·확대·최근** 버튼으로 긴 가로축을 탐색. 데이터·기존 주기 선택·분봉 캐시는 유지. **관심가 전체** (`#/market/levels`)와 **ETF 구성 감시** (`#/market/etf`)를 시장 아래에 연결. 시장 화면은 차트에 집중하고 QLD 전략·일정·가까운 관심가 요약 패널은 오늘로 이동 | `board-data` 브랜치, `config/price_alerts.json`, `etfwatch/reports/*.md` |
 | 기록 (`#/log`) | **판단**: 과거 판단 목록(계좌별 필터와 불러온 판단의 종목·티커·날짜 검색), 상세(주문 티켓·채점·최종 점검·리포트). **성적**: 거래일 기준 적중·벤치마크 대비·분할 효과. 390px 이하에서 판단/성적 행을 두 줄로 정돈해 숫자 잘림을 줄임. 기존 기록 상단의 최신 판단·미체결 주문·다가오는 날짜 요약은 오늘로 이동 | `runs/*/`, `reports/scorecard.json`, `config/scorecard_notes.json` |
 
@@ -56,7 +56,7 @@
 - `assets/update.js`: 새로 배포된 화면 파일이 있으면 한 번 다시 연다(판단 일지·홈 공용)
 - `assets/home.js`: 홈 패널(QLD 전략·가까운 관심가·주요 일정)
 - `assets/board-sync.js`: 시세판 수집 완료 시 홈 패널만 갱신(추가 GitHub 폴링 없이 표시 변화 관찰)
-- `.github/workflows/check.yml`, `package.json`: PR 및 main 변경 시 Node 기반 구문·회귀 테스트와 Chromium 실렌더링 모바일 검사 자동 실행
+- `.github/workflows/check.yml`, `package.json`: PR 및 main 변경 시 Node 기반 구문·회귀 테스트와 Chromium·WebKit 모바일 렌더링 검사 자동 실행
 - `test-browser/mobile-layout.test.mjs`: 가상 데이터 미리보기로 320·375·390·430px 날짜 입력 겹침·가로 넘침·하단 도크 가림·44px 조작부 및 계좌·기간 연동을 브라우저에서 검사. `npm run check:browser` 실행 전 `npx playwright install chromium` 필요. 실패 화면은 CI 아티팩트로 보관
 - `docs/mobile-browser-qa-2026-11-28.md`: 자동 브라우저 검사 범위와 실제 iPhone Safari·VoiceOver 수동 검수 조건
 - `assets/view-home.js`, `view-log.js`, `view-assets.js`: 탭별 화면

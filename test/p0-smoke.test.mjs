@@ -48,9 +48,15 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     from.value = "2";
     from.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
     assert.equal(root.querySelector('[data-label="from"]').textContent, "26.11.26");
-    assert.equal(root.querySelector('.range .slider input[data-end="from"]').getAttribute("aria-valuetext"), "11/26", "스크린리더에 기록 인덱스 대신 날짜 전달");
+    assert.equal(root.querySelector('.range .slider input[data-end="from"]').getAttribute("aria-valuetext"), "2026년 11월 26일", "스크린리더에 축약 표기가 아닌 연월일 전달");
     assert.equal(root.querySelector('.range-steps').closest('.range-fine'), null, "7일씩 조정 버튼은 정밀 날짜를 펼치지 않아도 접근할 수 있다");
     assert.equal(root.querySelectorAll('.range-step-pair button').length, 4);
+    assert.equal(root.querySelectorAll('[data-select-end]').length, 4, "기본·고정 슬라이더 모두 손잡이를 선택할 수 있다");
+    root.querySelector('[data-select-end="from"]').click();
+    assert.equal(root.querySelector('.range .slider').dataset.activeEnd, "from");
+    assert.equal(root.querySelector('.range-float .slider').dataset.activeEnd, "from");
+    root.querySelector('[data-step-days="1"]').click();
+    assert.equal(root.querySelector('[data-step-end="to"][data-step="-1"]').textContent, "−1일");
     assert.ok(root.querySelector('.account-selection'), "함께 선택한 계좌를 성과 카드 제목 아래에서 확인할 수 있다");
     assert.match(root.querySelector('.line svg').getAttribute('viewBox'), /0 0 600 240/);
     assert.ok(root.querySelector('.perf-baseline'), "수익률 기초일 계산 기준을 표시한다");

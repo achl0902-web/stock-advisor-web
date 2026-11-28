@@ -11,6 +11,7 @@ import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, u
 const PERIODS = [["7", "1주"], ["30", "1개월"], ["90", "3개월"], ["365", "1년"], ["all", "전체"]];
 // 선택한 기간은 양끝 모두 같은 형식으로 보여 주고, 기초 평가일은 아래 성과에 별도로 표시한다.
 const rangeDate = d => d?.slice(2).replaceAll("-", ".") || "–";
+const spokenDate = d => { const [year, month, day] = d.split("-"); return `${year}년 ${Number(month)}월 ${Number(day)}일`; };
 // 날짜 입력의 iOS 기본 UI는 고유 너비가 커서 카드 밖으로 튀어나온다.
 // 표시 너비는 우리 컨트롤이 담당하고, 투명한 날짜 입력은 터치·키보드·접근성에 그대로 쓴다.
 function datePicker(end, label, date, min, max) {
@@ -27,6 +28,8 @@ const win = { preset: "365", from: null, to: null };
 let unit = "KRW"; // 계좌 탭의 성과를 원화로 볼지 달러로 볼지
 let unitOn = false; // 지금 화면이 원/달러 고르기를 쓰는지(계좌 탭만)
 let trends = []; // 지금 화면에 그린 성과 칸들 [{key, now, label}]: 기간을 바꾸면 이것만 다시 그린다
+let activeRangeEnd = "to"; // 손잡이가 겹쳐도 어느 날짜를 조정할지 명시적으로 고를 수 있다
+let rangeStepDays = 7;
 
 function presetWindow(t) {
   if (win.preset === "all") return { from: t[0], to: t.at(-1) };
@@ -39,11 +42,17 @@ function presetWindow(t) {
 // 손잡이 두 개 슬라이더. 제자리 막대와 위에 뜨는 막대가 같은 모양을 쓴다
 function sliderBox(t, w) {
   const at = d => t.length > 1 ? t.indexOf(d) / (t.length - 1) * 100 : 0;
-  return `<div class="slider" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
+  return `<div class="slider" data-active-end="${activeRangeEnd}" role="group" aria-label="시작일과 종료일 범위 슬라이더" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
       <span class="slider-track" aria-hidden="true"><i></i></span>
-      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="시작일" aria-valuetext="${esc(dayText(w.from))}" ${t.length < 2 ? "disabled" : ""}>
-      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="끝일" aria-valuetext="${esc(dayText(w.to))}" ${t.length < 2 ? "disabled" : ""}>
+      <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="기간 시작일" aria-valuetext="${esc(spokenDate(w.from))}" ${t.length < 2 ? "disabled" : ""}>
+      <input type="range" data-end="to" min="0" max="${t.length - 1}" value="${t.indexOf(w.to)}" aria-label="기간 종료일" aria-valuetext="${esc(spokenDate(w.to))}" ${t.length < 2 ? "disabled" : ""}>
     </div>`;
+}
+
+function handlePicker({ compact = false } = {}) {
+  return `<div class="range-handles${compact ? " compact" : ""}" role="group" aria-label="조정할 슬라이더 손잡이 선택">
+    ${[["from", "시작"], ["to", "종료"]].map(([end, label]) => `<button type="button" data-select-end="${end}" aria-pressed="${activeRangeEnd === end}" aria-label="${label}일 손잡이 선택">${label}${compact ? "" : "일 조정"}</button>`).join("")}
+  </div>`;
 }
 
 function rangeBox({ units = false } = {}) {
@@ -61,8 +70,12 @@ function rangeBox({ units = false } = {}) {
       <summary class="range-summary"><span>기간 슬라이더</span><span class="range-dates"><b class="fig" data-label="from">${esc(rangeDate(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(rangeDate(w.to))}</b></span></summary>
       <div class="range-custom-controls">
         ${sliderBox(t, w)}
-        <div class="range-steps" role="group" aria-label="시작일과 종료일 일주일씩 조정">
-          ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label}</span><button type="button" data-step-end="${end}" data-step="-7" aria-label="${label} 일주일 전">−7일</button><button type="button" data-step-end="${end}" data-step="7" aria-label="${label} 일주일 후">+7일</button></div>`).join("")}
+        ${handlePicker()}
+        <div class="range-step-mode" role="group" aria-label="날짜 미세 조정 단위"><span>날짜 미세 조정</span>
+          ${[1, 7].map(days => `<button type="button" data-step-days="${days}" aria-pressed="${rangeStepDays === days}">${days}일씩</button>`).join("")}
+        </div>
+        <div class="range-steps" role="group" aria-label="시작일과 종료일 미세 조정">
+          ${[["from", "시작일"], ["to", "종료일"]].map(([end, label]) => `<div class="range-step-pair" role="group" aria-label="${label} 조정"><span>${label}</span><button type="button" data-step-end="${end}" data-step="-1" aria-label="${label} ${rangeStepDays}일 전">−${rangeStepDays}일</button><button type="button" data-step-end="${end}" data-step="1" aria-label="${label} ${rangeStepDays}일 후">+${rangeStepDays}일</button></div>`).join("")}
         </div>
         <details class="range-fine">
           <summary>날짜 직접 선택</summary>
@@ -78,6 +91,7 @@ function rangeBox({ units = false } = {}) {
   </section>
   <div class="range-float" aria-label="기간" role="group">
     <p class="range-dates"><b class="fig" data-label="from">${esc(rangeDate(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(rangeDate(w.to))}</b></p>
+    ${handlePicker({ compact: true })}
     ${sliderBox(t, w)}
   </div>`;
 }
@@ -90,7 +104,7 @@ function priceStatusBar() {
   const failed = status.errors.filter(x => !delayed.has(x));
   const stale = status.stale.length ? (window.saFamily
     ? `<span>일부 시세 날짜 지연</span>`
-    : `<details open><summary>시세 날짜 지연 ${status.stale.length}건</summary><p>${status.stale.map(x => `${esc(x.sym)}: ${esc(x.date || "가격 없음")} (기준 ${esc(x.expected || "확인 불가")})`).join(" · ")}</p></details>`) : "";
+    : `<details><summary>시세 날짜 지연 ${status.stale.length}건 · 상세 보기</summary><p>${status.stale.map(x => `${esc(x.sym)}: ${esc(x.date || "가격 없음")} (기준 ${esc(x.expected || "확인 불가")})`).join(" · ")}</p></details>`) : "";
   const errors = failed.length ? (window.saFamily
     ? `<span>시세 수집 실패 ${failed.length}건</span>`
     : `<details><summary>시세 수집 실패 ${failed.length}건</summary><p>${esc(failed.join(", "))}</p></details>`) : "";
@@ -101,9 +115,15 @@ function priceStatusBar() {
 const TOP = 64; // 위 막대 높이(56) + 여유
 let floatObs = null;
 let floatResizeHandler = null;
-let dragY = null; // 손잡이를 끄는 동안 지켜야 할 스크롤 위치
-addEventListener("scroll", () => { if (dragY != null && Math.abs(scrollY - dragY) > 1) scrollTo(0, dragY); }, { passive: true });
-for (const e of ["pointerup", "pointercancel", "touchend", "touchcancel"]) addEventListener(e, () => { dragY = null; });
+// iOS 날짜 선택기/키보드가 열린 동안 하단 도크를 감춘다. 닫으면 그대로 복원한다.
+addEventListener("focusin", e => {
+  if (e.target.matches?.('input[data-date]')) document.documentElement.classList.add("date-editing");
+});
+addEventListener("focusout", e => {
+  if (e.target.matches?.('input[data-date]')) queueMicrotask(() => {
+    if (!document.activeElement?.matches?.('input[data-date]')) document.documentElement.classList.remove("date-editing");
+  });
+});
 function bindRange() {
   const t = state.model.worth?.t;
   if (!t?.length) return;
@@ -129,8 +149,8 @@ function bindRange() {
   const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
   // 두 막대를 같은 값으로 맞춘다
   const show = (a, b) => {
-    ins("from").forEach(x => { x.value = a; x.setAttribute("aria-valuetext", dayText(t[a])); });
-    ins("to").forEach(x => { x.value = b; x.setAttribute("aria-valuetext", dayText(t[b])); });
+    ins("from").forEach(x => { x.value = a; x.setAttribute("aria-valuetext", spokenDate(t[a])); x.max = b; });
+    ins("to").forEach(x => { x.value = b; x.setAttribute("aria-valuetext", spokenDate(t[b])); x.min = a; });
     view.querySelectorAll(".slider").forEach(box => {
       box.style.setProperty("--a", `${t.length > 1 ? a / (t.length - 1) * 100 : 0}%`);
       box.style.setProperty("--b", `${t.length > 1 ? b / (t.length - 1) * 100 : 0}%`);
@@ -142,33 +162,71 @@ function bindRange() {
     view.querySelectorAll('[data-label="from"]').forEach(x => { x.textContent = rangeDate(t[a]); });
     view.querySelectorAll('[data-label="to"]').forEach(x => { x.textContent = rangeDate(t[b]); });
   };
-  // 손잡이를 잡는 순간 아이폰 사파리는 그 입력칸을 "보이게" 하려고 화면을 끌어올린다.
-  // 끄는 동안에는 페이지가 움직일 이유가 없으니, 잡은 자리에서 벗어나면 바로 되돌린다.
-  const hold = () => { dragY = scrollY; };
+  const selectEnd = end => {
+    activeRangeEnd = end;
+    view.querySelectorAll(".slider").forEach(box => { box.dataset.activeEnd = end; });
+    view.querySelectorAll("[data-select-end]").forEach(button => {
+      button.setAttribute("aria-pressed", String(button.dataset.selectEnd === end));
+    });
+  };
   const customWindow = (a, b) => {
     Object.assign(win, { preset: null, from: t[a], to: t[b] });
     show(a, b);
     view.querySelectorAll("[data-period]").forEach(x => x.setAttribute("aria-pressed", "false"));
   };
-  view.querySelectorAll(".slider input").forEach(x => {
-    x.addEventListener("pointerdown", hold); x.addEventListener("touchstart", hold, { passive: true });
-  });
   let raf = 0;
+  const scheduleDraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawTrends); };
+  view.querySelectorAll("[data-select-end]").forEach(button => button.addEventListener("click", () => selectEnd(button.dataset.selectEnd)));
+  view.querySelectorAll("[data-step-days]").forEach(button => button.addEventListener("click", () => {
+    rangeStepDays = Number(button.dataset.stepDays);
+    view.querySelectorAll("[data-step-days]").forEach(x => x.setAttribute("aria-pressed", String(x === button)));
+    view.querySelectorAll("[data-step-end]").forEach(x => {
+      const direction = Number(x.dataset.step);
+      x.textContent = `${direction < 0 ? "−" : "+"}${rangeStepDays}일`;
+      x.setAttribute("aria-label", `${x.dataset.stepEnd === "from" ? "시작일" : "종료일"} ${rangeStepDays}일 ${direction < 0 ? "전" : "후"}`);
+    });
+  }));
   view.querySelectorAll(".slider input").forEach(input => input.addEventListener("input", () => {
     const box = input.closest(".slider");
     let a = +box.querySelector('[data-end="from"]').value, b = +box.querySelector('[data-end="to"]').value;
-    if (a > b - 1) { if (input.dataset.end === "from") a = Math.max(0, b - 1); else b = Math.min(t.length - 1, a + 1); }
+    if (a > b) { if (input.dataset.end === "from") a = b; else b = a; }
+    selectEnd(input.dataset.end);
     customWindow(a, b);
-    cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(drawTrends); // 끄는 동안 한 화면에 한 번만 다시 그린다
+    scheduleDraw(); // 끄는 동안 한 화면에 한 번만 다시 그린다
   }));
+  view.querySelectorAll(".slider input").forEach(input => input.addEventListener("pointerdown", () => selectEnd(input.dataset.end)));
+  // 막대의 빈 곳도 탭·가로 드래그로 조작한다. 손잡이를 누르면 native range가 처리한다.
+  // 터치가 세로로 움직일 때는 브라우저의 본문 스크롤을 막지 않는다.
+  view.querySelectorAll(".slider").forEach(box => {
+    let pointer = null;
+    const move = e => {
+      if (pointer !== e.pointerId || !t.length) return;
+      const track = box.querySelector(".slider-track").getBoundingClientRect();
+      const ratio = Math.max(0, Math.min(1, (e.clientX - track.left) / track.width));
+      const value = Math.round(ratio * (t.length - 1));
+      const current = presetWindow(t);
+      const a = t.indexOf(current.from), b = t.indexOf(current.to);
+      const end = activeRangeEnd;
+      customWindow(end === "from" ? Math.min(value, b) : a, end === "to" ? Math.max(value, a) : b);
+      scheduleDraw();
+    };
+    box.addEventListener("pointerdown", e => {
+      if (e.target.closest("input") || t.length < 2) return;
+      pointer = e.pointerId;
+      box.setPointerCapture?.(pointer);
+      move(e);
+    });
+    box.addEventListener("pointermove", move);
+    for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) box.addEventListener(event, () => { pointer = null; });
+  });
   // 긴 이력의 1픽셀 차이가 며칠씩 벌어지는 모바일에서 7일 단위로 조정한다.
   view.querySelectorAll("[data-step-end]").forEach(btn => btn.addEventListener("click", () => {
     const w = presetWindow(t);
     let a = t.indexOf(w.from), b = t.indexOf(w.to);
-    const delta = Number(btn.dataset.step);
-    if (btn.dataset.stepEnd === "from") a = Math.min(shiftDateIndexByDays(t, a, delta), Math.max(0, b - 1));
-    else b = Math.max(shiftDateIndexByDays(t, b, delta), Math.min(t.length - 1, a + 1));
+    const delta = Number(btn.dataset.step) * rangeStepDays;
+    if (btn.dataset.stepEnd === "from") a = Math.min(shiftDateIndexByDays(t, a, delta), b);
+    else b = Math.max(shiftDateIndexByDays(t, b, delta), a);
+    selectEnd(btn.dataset.stepEnd);
     customWindow(a, b);
     drawTrends();
   }));
@@ -207,7 +265,6 @@ function keepPlace(redraw) {
   if (!pick || pick[1] > innerHeight || !pick[0].isConnected) return; // 바꿔 끼운 칸이 기준이었으면 위쪽은 그대로다
   const d = pick[0].getBoundingClientRect().top - pick[1];
   if (Math.abs(d) >= 1) scrollBy(0, d);
-  if (dragY != null) dragY = scrollY; // 높이 보정으로 옮긴 자리가 새 기준
 }
 
 // 성과 칸 자리: 그리기는 drawTrends가 한다. key: 계좌·계좌 목록, now: {계좌: 지금 평가액}
