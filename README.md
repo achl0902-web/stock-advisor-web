@@ -45,7 +45,7 @@
 
 - `log.html`: 판단 일지 뼈대와 CSP
 - `assets/tokens.css`: 판단 일지·시세판 공용 색·글꼴 토큰과 아래 탭 모양
-- `assets/nav.js`: 공용 아래 탭(오늘·기록·자산·시세)
+- `assets/nav.js`: 공용 탐색(오늘·자산·시장·기록)
 - `assets/theme.js`: 네 가지 테마 고르기(블랙 라임·에스프레소 민트·스톰 오렌지·코발트 옐로)
 - `assets/data.js`: GitHub REST 읽기, blob 캐시(큰 JSON은 화면에 쓰는 부분만 추려 저장)
 - `assets/store.js`: 화면이 쓰는 데이터 모델(판단·계좌 평가·관심가·성적 계산). `node --test test/store.test.mjs`로 확인
@@ -56,7 +56,9 @@
 - `assets/update.js`: 새로 배포된 화면 파일이 있으면 한 번 다시 연다(판단 일지·홈 공용)
 - `assets/home.js`: 홈 패널(QLD 전략·가까운 관심가·주요 일정)
 - `assets/board-sync.js`: 시세판 수집 완료 시 홈 패널만 갱신(추가 GitHub 폴링 없이 표시 변화 관찰)
-- `.github/workflows/check.yml`, `package.json`: PR 및 main 변경 시 Node 기반 구문·회귀 테스트 자동 실행
+- `.github/workflows/check.yml`, `package.json`: PR 및 main 변경 시 Node 기반 구문·회귀 테스트와 Chromium 실렌더링 모바일 검사 자동 실행
+- `test-browser/mobile-layout.test.mjs`: 가상 데이터 미리보기로 320·375·390·430px 날짜 입력 겹침·가로 넘침·하단 도크 가림·44px 조작부 및 계좌·기간 연동을 브라우저에서 검사. `npm run check:browser` 실행 전 `npx playwright install chromium` 필요. 실패 화면은 CI 아티팩트로 보관
+- `docs/mobile-browser-qa-2026-11-28.md`: 자동 브라우저 검사 범위와 실제 iPhone Safari·VoiceOver 수동 검수 조건
 - `assets/view-home.js`, `view-log.js`, `view-assets.js`: 탭별 화면
 - `assets/md.js`: 리포트용 작은 마크다운 렌더러(모든 원문 이스케이프, http(s) 링크만)
 - `assets/app.css`: 판단 일지 스타일
