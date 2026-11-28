@@ -67,8 +67,10 @@ function rangeBox({ units = false } = {}) {
     <details class="range-custom" open>
       <summary class="range-summary"><span>기간 슬라이더</span><span class="range-dates"><b class="fig" data-label="from">${esc(rangeDate(w.from))}</b><span>~</span><b class="fig" data-label="to">${esc(rangeDate(w.to))}</b></span></summary>
       <div class="range-custom-controls">
-        ${sliderBox(t, w)}
-        ${handlePicker()}
+        <div class="range-portable-slot"><div class="range-portable">
+          ${sliderBox(t, w)}
+          ${handlePicker()}
+        </div></div>
         <details class="range-fine">
           <summary>정밀 조정 · 날짜 직접 선택</summary>
           <div class="range-fine-controls">
@@ -86,6 +88,7 @@ function rangeBox({ units = false } = {}) {
         </details>
       </div>
     </details>
+    <div class="range-float" role="group" aria-label="스크롤 중 기간 슬라이더" hidden></div>
   </section>`;
 }
 
@@ -106,6 +109,8 @@ function priceStatusBar() {
 }
 
 const TOP = 64; // 위 막대 높이(56) + 여유
+let rangeScrollHandler = null;
+let rangeResizeHandler = null;
 // iOS 날짜 선택기/키보드가 열린 동안 하단 도크를 감춘다. 닫으면 그대로 복원한다.
 // WebKit의 native date picker는 focus() 없이도 열릴 수 있어 실제 pointer/click도 감지한다.
 addEventListener("pointerdown", e => {
@@ -128,6 +133,48 @@ addEventListener("change", e => {
 function bindRange() {
   const t = state.model.worth?.t;
   if (!t?.length) return;
+  // 화면 위에서는 원래 자리, 아래로 스크롤하면 같은 DOM 손잡이를 고정 바에 옮긴다.
+  // 복제 range 입력을 만들면 날짜·포커스·터치 상태가 어긋날 수 있으므로 절대 복제하지 않는다.
+  if (rangeScrollHandler) removeEventListener("scroll", rangeScrollHandler);
+  if (rangeResizeHandler) removeEventListener("resize", rangeResizeHandler);
+  const bar = view.querySelector(".range");
+  const detail = bar.querySelector(".range-custom");
+  const slot = bar.querySelector(".range-portable-slot");
+  const portable = slot.querySelector(".range-portable");
+  const floating = bar.querySelector(".range-float");
+  let pinned = false;
+  const updatePosition = () => {
+    if (!bar.isConnected) {
+      removeEventListener("scroll", rangeScrollHandler);
+      removeEventListener("resize", rangeResizeHandler);
+      rangeScrollHandler = rangeResizeHandler = null;
+      return;
+    }
+    const r = bar.getBoundingClientRect();
+    const shouldPin = detail.open && r.width > 0 && window.scrollY > 0 && r.bottom <= TOP;
+    if (shouldPin !== pinned) {
+      if (shouldPin) {
+        slot.style.height = `${portable.getBoundingClientRect().height}px`;
+        floating.append(portable);
+        floating.hidden = false;
+      } else {
+        slot.append(portable);
+        slot.style.height = "";
+        floating.hidden = true;
+      }
+      pinned = shouldPin;
+    }
+    if (pinned) {
+      floating.style.left = `${r.left}px`;
+      floating.style.width = `${r.width}px`;
+    }
+  };
+  rangeScrollHandler = updatePosition;
+  rangeResizeHandler = updatePosition;
+  addEventListener("scroll", rangeScrollHandler, { passive: true });
+  addEventListener("resize", rangeResizeHandler, { passive: true });
+  detail.addEventListener("toggle", updatePosition);
+  updatePosition();
   const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
   // 손잡이와 노란색 구간을 같은 전체 날짜 좌표계에 맞춘다.
   // min/max를 상대 손잡이 값으로 바꾸면 native thumb가 전체 축 위의 다른 위치로 이동한다.

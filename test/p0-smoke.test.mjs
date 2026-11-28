@@ -52,7 +52,8 @@ test("오늘과 통합 자산 화면은 실제 DOM에서 렌더링되고 계좌 
     assert.ok(root.querySelector('.range-steps').closest('.range-fine'), "미세 조정 버튼은 보조 메뉴로 이동한다");
     assert.equal(root.querySelectorAll('.range-step-pair button').length, 4);
     assert.equal(root.querySelectorAll('[data-select-end]').length, 2, "한 개의 슬라이더에서 시작일·종료일을 선택한다");
-    assert.equal(root.querySelector('.range-float'), null, "중복 고정 슬라이더를 렌더링하지 않는다");
+    assert.ok(root.querySelector('.range-float[hidden]'), "스크롤 전에는 고정 조작 바를 숨긴다");
+    assert.equal(root.querySelectorAll('.slider').length, 1, "고정 조작 바에도 중복 슬라이더를 만들지 않는다");
     root.querySelector('[data-select-end="from"]').click();
     assert.equal(root.querySelector('.range .slider').dataset.activeEnd, "from");
     assert.equal(root.querySelector('[data-handle-date="from"]').textContent, "26.11.26");

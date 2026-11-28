@@ -74,7 +74,7 @@ test("자산 기간 상세 선택은 펼침식이며 기존 날짜·슬라이더
   assert.match(assets, /\$\{datePicker\("to"/);
   assert.match(assets, /\$\{sliderBox\(t, w\)\}/);
   assert.doesNotMatch(assets, /querySelector\("\.range-custom"\)\.open = false/);
-  assert.doesNotMatch(assets, /range-float/);
+  assert.match(assets, /class="range-float"[^>]*hidden/);
   assert.match(css, /\.range-summary\s*\{[^}]*min-height:\s*44px/);
   assert.match(css, /\.date-select\s*\{[^}]*border:\s*1px solid var\(--line-strong\)/);
 });
