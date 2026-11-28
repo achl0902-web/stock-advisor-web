@@ -40,7 +40,10 @@ export const pickBoard = s => {
     if (m.sym === "KRW=X") fx = m.last;
     if (m.sym === "BTC-KRW") quotes.BTC = { price: m.last, chg: m.chg_pct, name: m.name, barDate: m.date || null, source: "board", currency: "KRW" };
   }
-  return { asof: s.asof, fx, quotes, errors: Array.isArray(s.errors) ? s.errors : [] };
+  const stale = (Array.isArray(s.stale_quotes) ? s.stale_quotes : [])
+    .filter(x => x && typeof x.sym === "string")
+    .map(x => ({ sym: x.sym, date: x.date || null, expected: x.expected || null }));
+  return { asof: s.asof, fx, quotes, errors: Array.isArray(s.errors) ? s.errors : [], stale };
 };
 
 function parseRunTime(id) {
@@ -121,7 +124,8 @@ export function levelsModel({ accounts, alerts, alertState, board }) {
   for (const [code, q] of Object.entries(alertState?.quotes || {})) putQuote(quotes, code, { price: q?.price, at: checked, currency: "KRW" });
   const boardAt = board?.asof ? new Date(board.asof) : null;
   for (const [code, q] of Object.entries(board?.quotes || {})) putQuote(quotes, code, { ...q, at: boardAt });
-  return { accounts: accounts || {}, alerts, alertState, names, quotes, boardAt, boardErrors: board?.errors || [], fx: board?.fx || null };
+  return { accounts: accounts || {}, alerts, alertState, names, quotes, boardAt,
+    boardErrors: board?.errors || [], boardStale: board?.stale || [], fx: board?.fx || null };
 }
 
 // 수집 시각은 마지막 거래 시각이 아니다. 휴장일에도 올바르게 설명하도록 나누어 반환한다.
@@ -129,7 +133,9 @@ export function quoteStatus(model, now = new Date()) {
   const asof = model?.boardAt instanceof Date && Number.isFinite(model.boardAt.getTime()) ? model.boardAt : null;
   const ageMinutes = asof ? Math.max(0, Math.floor((now.getTime() - asof.getTime()) / 60_000)) : null;
   const errors = Array.isArray(model?.boardErrors) ? model.boardErrors : [];
-  return { asof, ageMinutes, errors, level: errors.length ? "error" : ageMinutes == null ? "missing" : ageMinutes >= 30 ? "old" : "ok" };
+  const stale = Array.isArray(model?.boardStale) ? model.boardStale : [];
+  return { asof, ageMinutes, errors, stale,
+    level: errors.length || stale.length ? "error" : ageMinutes == null ? "missing" : ageMinutes >= 30 ? "old" : "ok" };
 }
 
 export function assetQuotesComplete(accounts, quotes, fx) {

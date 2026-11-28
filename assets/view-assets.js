@@ -86,10 +86,15 @@ function priceStatusBar() {
   const status = quoteStatus(state.model);
   const at = status.asof ? `${dateLabel(status.asof)} 수집` : "수집 이력 없음";
   const age = status.ageMinutes == null ? "" : status.ageMinutes >= 30 ? ` · 수집 후 ${status.ageMinutes < 60 ? `${status.ageMinutes}분` : `${Math.floor(status.ageMinutes / 60)}시간`} 경과` : "";
-  const errors = status.errors.length ? (window.saFamily
-    ? `<span>시세 수집 실패 ${status.errors.length}건</span>`
-    : `<details><summary>시세 수집 실패 ${status.errors.length}건</summary><p>${esc(status.errors.join(", "))}</p></details>`) : "";
-  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격일은 보유 목록에서 확인</span>${errors}</aside>`;
+  const delayed = new Set(status.stale.map(x => x.sym));
+  const failed = status.errors.filter(x => !delayed.has(x));
+  const stale = status.stale.length ? (window.saFamily
+    ? `<span>일부 시세 날짜 지연</span>`
+    : `<details open><summary>시세 날짜 지연 ${status.stale.length}건</summary><p>${status.stale.map(x => `${esc(x.sym)}: ${esc(x.date || "가격 없음")} (기준 ${esc(x.expected || "확인 불가")})`).join(" · ")}</p></details>`) : "";
+  const errors = failed.length ? (window.saFamily
+    ? `<span>시세 수집 실패 ${failed.length}건</span>`
+    : `<details><summary>시세 수집 실패 ${failed.length}건</summary><p>${esc(failed.join(", "))}</p></details>`) : "";
+  return `<aside class="price-status ${status.level}" role="status"><span>시세판 ${at}${age} · 종목별 가격일은 보유 목록에서 확인</span>${stale}${errors}</aside>`;
 }
 
 const TOP = 64; // 위 막대 높이(56) + 여유

@@ -384,7 +384,8 @@ small > span + span, .hero-when > span + span { margin-left: 8px; padding-left: 
 }
 .price-status { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; padding: 9px 12px; border-radius: 12px; background: var(--panel); color: var(--sub); font-size: 14px; }
 .price-status.old, .price-status.missing { background: var(--warn-wash); color: var(--warn); }
-.price-status.error { background: var(--up-wash); color: var(--up-ink); }
+.price-status.error { background: var(--warn-wash); color: var(--warn); }
+.price-status details { min-width: 0; max-width: 100%; }
 .price-status summary { display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 700; }
 .price-status details p { font-size: 12px; overflow-wrap: anywhere; }
 .tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--raised); font-size: 12px; font-weight: 500; color: var(--sub); vertical-align: 1px; }

@@ -29,9 +29,25 @@ test("quoteStatus: 수집 시각과 마지막 가격일을 구분하고 실패�
   const board = pickBoard({ asof: "2026-11-27T12:53:00+09:00", watch: [{ code: "QLD", last: 70, date: "2026-11-25", market: "US" }], errors: ["005930.KS"] });
   assert.equal(board.quotes.QLD.barDate, "2026-11-25");
   const model = { boardAt: new Date(board.asof), boardErrors: board.errors };
-  assert.deepEqual(quoteStatus(model, new Date("2026-11-27T13:05:00+09:00")), { asof: model.boardAt, ageMinutes: 12, errors: ["005930.KS"], level: "error" });
+  assert.deepEqual(quoteStatus(model, new Date("2026-11-27T13:05:00+09:00")), { asof: model.boardAt, ageMinutes: 12, errors: ["005930.KS"], stale: [], level: "error" });
   assert.equal(quoteStatus({ ...model, boardErrors: [] }, new Date("2026-11-27T13:30:00+09:00")).level, "old");
   assert.equal(quoteStatus({ boardAt: null }).level, "missing");
+});
+
+test("최신 수집 시각이어도 종목별 종가가 낡았으면 시세 지연으로 판정한다", () => {
+  const board = pickBoard({
+    asof: "2026-11-28T10:54:46+09:00",
+    watch: [{ code: "QLD", last: 68.15, date: "2026-11-25", market: "US" }],
+    errors: ["QLD"],
+    stale_quotes: [{ sym: "QLD", date: "2026-11-25", expected: "2026-11-27" }],
+  });
+  const model = { boardAt: new Date(board.asof), boardErrors: board.errors, boardStale: board.stale };
+  const status = quoteStatus(model, new Date("2026-11-28T10:58:00+09:00"));
+  assert.equal(status.ageMinutes, 3);
+  assert.equal(status.level, "error");
+  assert.deepEqual(status.stale, [{ sym: "QLD", date: "2026-11-25", expected: "2026-11-27" }]);
+  assert.equal(board.quotes.QLD.barDate, "2026-11-25");
+  assert.equal(quoteStatus({ ...model, boardErrors: [] }, new Date("2026-11-28T10:58:00+09:00")).level, "error");
 });
 
 test("assetQuotesComplete: 누락된 가격·환율이 있으면 예전 분석값 대체 경로를 유지", () => {

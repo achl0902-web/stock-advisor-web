@@ -161,8 +161,12 @@ async function boot() {
       if (todayOnly) model.summaryOnly = true;
       Object.assign(state, { model, strategy, loadedAt: Date.now() });
       const at = new Date(model.head.date);
-      setSync(`${ago(at)} 기록 갱신`);
-      syncEl.title = `저장소 기록 갱신(시세 수집과 별도): ${model.head.message} (${at.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })})`;
+      const delayed = model.boardStale || [];
+      setSync(delayed.length ? (FAMILY ? "일부 시세 지연" : `시세 ${delayed.length}건 지연`) : `${ago(at)} 기록 갱신`);
+      syncEl.title = delayed.length
+        ? FAMILY ? "일부 시세 날짜가 지연됐습니다. 저장소 기록 갱신과 별개입니다."
+          : `미갱신 종목: ${delayed.map(x => `${x.sym} ${x.date || "가격 없음"} (기준 ${x.expected || "확인 불가"})`).join(", ")}. 저장소 기록은 별도로 갱신됩니다.`
+        : `저장소 기록 갱신(시세 수집과 별도): ${model.head.message} (${at.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })})`;
       if (first || lastPath !== "settings") route({ keep: !first });
     } catch (e) {
       setSync("연결 실패", "off");

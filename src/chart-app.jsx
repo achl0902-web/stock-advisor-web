@@ -841,7 +841,9 @@ function StockBoardApp() {
                       jsx("span", {
                         children: a
                           ? `시세 ${formatUpdateTime(t.asof)} · ${a}`
-                          : `시세 ${formatUpdateTime(t.asof)} 완료`,
+                          : t.stale_quotes?.length
+                            ? `시세 ${formatUpdateTime(t.asof)} 수집 · ${t.stale_quotes.length}종목 지연`
+                            : `시세 ${formatUpdateTime(t.asof)} 완료`,
                       }),
                       jsx("span", {
                         children: t.history_asof
@@ -874,6 +876,11 @@ function StockBoardApp() {
         ],
       }),
       i && jsx("p", { className: "alert", role: "alert", children: i }),
+      !!t.stale_quotes?.length && jsx("p", {
+        className: "alert", role: "status",
+        children: window.saFamily ? "일부 종목의 최신 종가를 받지 못했습니다. 기존 가격은 최신 시세가 아닙니다."
+          : `최신 거래일의 종가를 받지 못한 종목 ${t.stale_quotes.length}건: ${t.stale_quotes.map(x => `${x.sym} ${x.date || "미확인"} (필요 ${x.expected || "미확인"})`).join(" · ")}. 기존 가격은 최신 시세가 아닙니다.`,
+      }),
       jsx(MacroTicker, { snap: t, reg: h, active: u, pick: y }),
       jsxs("div", {
         className: "market-links",
