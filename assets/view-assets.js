@@ -502,16 +502,17 @@ function ladder(it, q) {
 
 function levelCard(it, today) {
   const q = state.model.quotes[it.code];
+  const current = q?.invalid ? null : q;
   const sell = it.plan && it.hold != null && it.keep != null && it.keep < it.hold;
   return `<section class="panel level">
     ${head(it.name, `<span class="hint">${esc(it.code)}</span>`)}
     ${sell ? `<p class="lede">${nf(0).format(it.hold)}주에서 ${it.keep ? `${nf(0).format(it.keep)}주까지` : "전부"} 줄이는 계획</p>` : ""}
-    ${it.prices.length ? ladder(it, q) : ""}
+    ${it.prices.length ? ladder(it, current) : ""}
     ${it.dates.length ? `<ul class="dates">${it.dates.map(d => `<li class="${d.fired ? "done" : d.date <= today ? "due" : ""}">
       <span class="dday fig">${d.fired ? "알림" : dday(d.date, today)}</span>
       <span class="dates-main"><b>${esc(d.date.slice(5).replace("-", "/"))} ${esc(levelLabel(d.msg))}</b><p>${esc(levelNote(d.msg))}</p></span>
     </li>`).join("")}</ul>` : ""}
-    ${!q?.price && it.prices.length ? `<p class="hint">현재가가 없어 거리를 계산하지 못했습니다. 시세 탭을 한 번 열면 새로 수집합니다.</p>` : ""}
+    ${!current?.price && it.prices.length ? `<p class="hint">${q?.invalid ? `시세 날짜가 지연되어 종가 ${esc(q.barDate || "미확인")} 기준의 관심가 거리는 숨겼습니다.` : "현재가가 없어 거리를 계산하지 못했습니다."} 새로 불러오기로 다시 확인해 주세요.</p>` : ""}
   </section>`;
 }
 

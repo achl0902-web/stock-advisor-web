@@ -38,6 +38,7 @@ test("nearest: 닿지 않은 선을 현재가에서 가까운 순으로, 이미 
   assert.ok(rows[0].dist < 0 && !rows[0].reached);
   assert.equal(nearest(items, { QLD: { price: 77 } })[0].reached, true); // <= 조건을 이미 넘음
   assert.equal(nearest(items, {}).length, 0); // 시세가 없으면 거리를 못 잰다
+  assert.equal(nearest(items, { QLD: { price: 77, invalid: true } }).length, 0); // 지연 종가로 도달 여부 판정 금지
 });
 
 test("upcoming: 알리지 않은 날짜를 이른 순으로", () => {

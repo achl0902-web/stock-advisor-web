@@ -461,7 +461,7 @@ export function nearest(items, quotes, n = 5) {
   const rows = [];
   for (const it of items) {
     const q = quotes[it.code];
-    if (!q?.price) continue;
+    if (!q?.price || q.invalid) continue; // 지연 종가로 관심가 도달 여부를 판단하지 않는다.
     for (const p of it.prices) {
       if (p.fired) continue;
       const dist = (p.price / q.price - 1) * 100;
