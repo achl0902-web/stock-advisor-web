@@ -1,4 +1,9 @@
 // 평가 기록에 실제로 존재하는 날짜만 선택한다. 날짜 문자열은 ISO YYYY-MM-DD 오름차순이다.
+// 두 손잡이와 선택 구간은 반드시 동일한 [0, count-1] 좌표계를 사용한다.
+export function rangePercent(index, count) {
+  return count > 1 ? Math.max(0, Math.min(count - 1, index)) / (count - 1) * 100 : 0;
+}
+
 export function closestDateIndex(dates, target) {
   if (!dates.length) return -1;
   if (!target || target <= dates[0]) return 0;
