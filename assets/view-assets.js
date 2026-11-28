@@ -1,7 +1,7 @@
 // 자산: 계좌(보유·비중·손익), 관심가(가격선 사다리·날짜), ETF 구성 감시.
 import { ACCOUNT_ORDER, state, accountKeys, accountLabel, accountShort, accountView, viewOn, inUsd, levelItems, levelLabel, levelNote, todayKST, worthSeries, quoteStatus, livePositionsMatch } from "./store.js";
 import { SERIES, CASH, donut, line, bindLines, dayText } from "./chart.js";
-import { normalizeDateRange, shiftDateIndexByDays } from "./date-range.js";
+import { normalizeDateRange, rangePercent, shiftDateIndexByDays } from "./date-range.js";
 import { mergedView } from "./portfolio-merge.js";
 import { inline, markdown } from "./md.js";
 import { view, esc, money, nf, pct, tone, dateLabel, dday, distText, krwShort, usdShort, qtyText, head, subtabs, chips, bindChips, icon, MARKET_TABS } from "./ui.js";
@@ -41,7 +41,7 @@ function presetWindow(t) {
 // 기간 고르기: 버튼(1주~전체)과 시작·끝 손잡이 두 개짜리 슬라이더. 화면 위에 하나, 아래 모든 성과 칸에 같이 쓴다
 // 겹친 손잡이는 아래 시작일·종료일 버튼으로 선택할 수 있다.
 function sliderBox(t, w) {
-  const at = d => t.length > 1 ? t.indexOf(d) / (t.length - 1) * 100 : 0;
+  const at = d => rangePercent(t.indexOf(d), t.length);
   return `<div class="slider" data-active-end="${activeRangeEnd}" role="group" aria-label="시작일과 종료일 범위 슬라이더" style="--a:${at(w.from)}%;--b:${at(w.to)}%">
       <span class="slider-track" aria-hidden="true"><i></i></span>
       <input type="range" data-end="from" min="0" max="${t.length - 1}" value="${t.indexOf(w.from)}" aria-label="기간 시작일" aria-valuetext="${esc(spokenDate(w.from))}" ${t.length < 2 ? "disabled" : ""}>
@@ -129,13 +129,15 @@ function bindRange() {
   const t = state.model.worth?.t;
   if (!t?.length) return;
   const ins = end => view.querySelectorAll(`.slider input[data-end="${end}"]`);
-  // 두 막대를 같은 값으로 맞춘다
+  // 손잡이와 노란색 구간을 같은 전체 날짜 좌표계에 맞춘다.
+  // min/max를 상대 손잡이 값으로 바꾸면 native thumb가 전체 축 위의 다른 위치로 이동한다.
+  // 서로 교차하지 못하게 하는 제약은 input/pointer 이벤트의 customWindow에서만 처리한다.
   const show = (a, b) => {
-    ins("from").forEach(x => { x.value = a; x.setAttribute("aria-valuetext", spokenDate(t[a])); x.max = b; });
-    ins("to").forEach(x => { x.value = b; x.setAttribute("aria-valuetext", spokenDate(t[b])); x.min = a; });
+    ins("from").forEach(x => { x.value = a; x.setAttribute("aria-valuetext", spokenDate(t[a])); });
+    ins("to").forEach(x => { x.value = b; x.setAttribute("aria-valuetext", spokenDate(t[b])); });
     view.querySelectorAll(".slider").forEach(box => {
-      box.style.setProperty("--a", `${t.length > 1 ? a / (t.length - 1) * 100 : 0}%`);
-      box.style.setProperty("--b", `${t.length > 1 ? b / (t.length - 1) * 100 : 0}%`);
+      box.style.setProperty("--a", `${rangePercent(a, t.length)}%`);
+      box.style.setProperty("--b", `${rangePercent(b, t.length)}%`);
     });
     view.querySelectorAll('[data-date="from"]').forEach(x => { x.value = t[a]; });
     view.querySelectorAll('[data-date="to"]').forEach(x => { x.value = t[b]; });

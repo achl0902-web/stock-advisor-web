@@ -1,6 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { closestDateIndex, normalizeDateRange, shiftDateIndexByDays } from "../assets/date-range.js";
+import { closestDateIndex, normalizeDateRange, rangePercent, shiftDateIndexByDays } from "../assets/date-range.js";
+
+test("양쪽 슬라이더 손잡이와 선택 구간은 언제나 동일한 전체 날짜 축을 사용한다", () => {
+  assert.equal(rangePercent(0, 450), 0);
+  assert.equal(rangePercent(449, 450), 100);
+  assert.equal(rangePercent(80, 450), 80 / 449 * 100);
+  assert.equal(rangePercent(80, 450), rangePercent(80, 450), "날짜 인덱스 위치는 반대쪽 손잡이 값과 무관하다");
+  assert.equal(rangePercent(0, 1), 0);
+  assert.equal(rangePercent(-10, 450), 0);
+  assert.equal(rangePercent(999, 450), 100);
+});
 
 test("closestDateIndex: 기록 밖 날짜는 경계로, 비거래일은 가까운 기록으로", () => {
   const dates = ["2026-11-20", "2026-11-23", "2026-11-25", "2026-11-27"];

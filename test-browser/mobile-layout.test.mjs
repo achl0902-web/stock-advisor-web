@@ -276,6 +276,94 @@ test("모바일 손잡이가 겹쳐도 선택·1일 조정·트랙 탭이 가능
   }
 });
 
+test("슬라이더의 손잡이·선택 막대는 날짜가 같거나 반대쪽만 움직여도 실제 좌표가 일치한다", { timeout: 60_000 }, async () => {
+  const server = await serveDemo();
+  let browser;
+  try {
+    browser = await launchBrowser();
+    const page = await browser.newPage({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+    await page.goto(server.url, { waitUntil: "networkidle" });
+    await page.locator(".range-custom[open]").waitFor();
+    await page.locator(".range-fine > summary").click();
+
+    const firstDate = await page.locator('[data-date="from"]').getAttribute("min");
+    const dateAt = i => new Date(Date.parse(`${firstDate}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10);
+    const setDate = async (end, value) => {
+      const field = page.locator(`[data-date="${end}"]`);
+      await field.fill(value);
+      await field.dispatchEvent("change");
+    };
+    const geometry = () => page.evaluate(() => {
+      const box = document.querySelector(".range .slider");
+      const from = box.querySelector('[data-end="from"]');
+      const to = box.querySelector('[data-end="to"]');
+      const ratio = input => (Number(input.value) - Number(input.min)) / Math.max(1, Number(input.max) - Number(input.min));
+      const track = box.querySelector(".slider-track").getBoundingClientRect();
+      return {
+        fromIndex: Number(from.value), toIndex: Number(to.value),
+        fromRatio: ratio(from), toRatio: ratio(to),
+        fillFrom: parseFloat(box.style.getPropertyValue("--a")) / 100,
+        fillTo: parseFloat(box.style.getPropertyValue("--b")) / 100,
+        fromMin: Number(from.min), toMin: Number(to.min),
+        fromMax: Number(from.max), toMax: Number(to.max),
+        trackLeft: track.left, trackWidth: track.width,
+      };
+    });
+    const check = async label => {
+      const g = await geometry();
+      assert.equal(g.fromMin, 0, `${label}: 시작 손잡이의 전체 날짜 범위가 축소됨`);
+      assert.equal(g.toMin, 0, `${label}: 종료 손잡이의 전체 날짜 범위가 축소됨`);
+      assert.equal(g.fromMax, g.toMax, `${label}: 두 손잡이의 전체 날짜 범위가 달라짐`);
+      assert.ok(Math.abs(g.fromRatio - g.fillFrom) < 1e-6, `${label}: 시작 손잡이와 노란 영역 좌표 불일치 ${JSON.stringify(g)}`);
+      assert.ok(Math.abs(g.toRatio - g.fillTo) < 1e-6, `${label}: 종료 손잡이와 노란 영역 좌표 불일치 ${JSON.stringify(g)}`);
+      return g;
+    };
+
+    // 450일 이력에서 시작일을 고정하고 종료일만 변경: 시작 손잡이의 실제 좌표는 불변이어야 한다.
+    await setDate("from", dateAt(80));
+    await setDate("to", dateAt(400));
+    const long = await check("긴 기간");
+    await setDate("to", dateAt(160));
+    const short = await check("짧은 기간");
+    assert.equal(long.fromIndex, short.fromIndex);
+    assert.ok(Math.abs(long.trackLeft + long.fromRatio * long.trackWidth
+      - (short.trackLeft + short.fromRatio * short.trackWidth)) < 1,
+    "종료일만 바뀌었는데 시작 손잡이가 이동함");
+
+    // 이전 UI는 같은 날짜를 선택하면 양 끝에 손잡이가 벌어졌다.
+    await setDate("to", dateAt(80));
+    const equal = await check("시작일과 종료일 동일");
+    assert.equal(equal.fromIndex, equal.toIndex);
+    assert.ok(Math.abs(equal.fromRatio - equal.toRatio) < 1e-6, "같은 날짜인데 손잡이가 겹치지 않음");
+
+    // 기간 프리셋과 손잡이 직접 조작 후에도 공통 좌표계를 유지한다.
+    await page.locator('[data-period="all"]').click();
+    const all = await check("전체 기간");
+    assert.equal(all.fromRatio, 0);
+    assert.equal(all.toRatio, 1);
+    await page.locator('[data-period="30"]').click();
+    await check("1개월 프리셋");
+
+    await setDate("from", dateAt(80));
+    await setDate("to", dateAt(400));
+    await page.locator('[data-select-end="from"]').click();
+    const beforeDrag = await check("손잡이 드래그 전");
+    const dragY = (await page.locator(".range .slider-track").boundingBox()).y + 2;
+    const dragFromX = beforeDrag.trackLeft + beforeDrag.fromRatio * beforeDrag.trackWidth;
+    const dragToX = beforeDrag.trackLeft + beforeDrag.trackWidth * (110 / beforeDrag.fromMax);
+    await page.mouse.move(dragFromX, dragY);
+    await page.mouse.down();
+    await page.mouse.move(dragToX, dragY, { steps: 8 });
+    await page.mouse.up();
+    const afterDrag = await check("손잡이 직접 드래그 후");
+    assert.ok(afterDrag.fromIndex > beforeDrag.fromIndex, "시작 손잡이를 실제로 드래그해도 날짜가 움직이지 않음");
+    assert.equal(afterDrag.toIndex, beforeDrag.toIndex, "시작 손잡이 드래그가 종료일을 변경함");
+  } finally {
+    await browser?.close();
+    await server.close();
+  }
+});
+
 test("공유 링크는 개인 기록·설정과 토큰 입력을 노출하지 않고 URL 전환을 거부한다", { timeout: 30_000 }, async () => {
   const server = await serveDemo();
   let browser;
